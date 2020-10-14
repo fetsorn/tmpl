@@ -1,0 +1,25 @@
+digraph storg_timeline {
+imap=yes;
+node [shape="plain"];rankdir=TB;
+/* date <-> versions ranks */
+/* {rank=same; "1995-05-01" "Postgres95-0.01"} */
+
+{{ range $nodeIndex, $node := . }}
+{rank=same; "{{ $node.metadatum.HOST_DATE }}""{{ $nodeIndex }}"}{{ end }}
+
+/* Dates relations */
+/*"<1995-01-01>" -> */
+
+{{ range $nodeIndex, $node := uniqueDate . "HOST_DATE"}}
+{{ if reached2400 $nodeIndex }}"{{ $node.metadatum.HOST_DATE }}"
+"{{ $node.metadatum.HOST_DATE }}" ->
+{{ else }}"{{ $node.metadatum.HOST_DATE }}" ->{{ end }}{{ end }}
+"Future"
+
+/* Versions relations */
+/*"1" [label="Postgres95-0.03"] ;*/
+
+{{ range $nodeIndex, $node := . }}
+"{{ $nodeIndex }}" [label="*",tooltip="{{ printf "%.50s" $node.datum.entry }}",href="ravdia/{{ $node.datum.uuid }}.org",target="_blank"];{{ end }}
+
+}

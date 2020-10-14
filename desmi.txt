@@ -1,0 +1,14 @@
+{{ range . }}
+* .
+:PROPERTIES: {{ with .metadatum }}
+:COMMENT: {{ with .COMMENT }}{{ . }}{{ end }}
+:GUEST_DATE: {{ with .GUEST_DATE }}{{ . }}{{ end }}
+:GUEST: {{ with .GUEST }}{{ . }}{{ end }}
+:HOST_DATE: {{ with .HOST_DATE }} {{ . }}{{ end }}
+:HOST: {{ with .HOST }}{{ . }}{{ end }}
+:LABEL: {{ with .LABEL }}{{ . }}{{ end }}
+:MODULE: {{ with .MODULE }}{{ . }}{{ end }}
+:TYPE: {{ with .TYPE }}{{ . }}{{ end }}{{ end }}
+:UUID: {{ with .datum.uuid }}{{ . }}{{ end }}
+:END:
+{{ with .datum.entry }}{{ . }}{{ end }}{{ end }}
