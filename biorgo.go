@@ -5,51 +5,10 @@ import (
 	"fmt"
 	"os"
 	"text/template"
-	// "time"
+	"time"
 )
 
-type Todo struct {
-	Name        string
-	Description string
-}
-
-type Storg struct {
-	Metadata Storg_meta `json:"metadatum"`
-	Data     Storg_data `json:"datum"`
-}
-
-type Storg_meta struct {
-	Comment    string `json:"COMMENT"`
-	Guest_date string `json:"GUEST_DATE"`
-	Guest      string `json:"GUEST"`
-	Host_date  string `json:"HOST_DATE"`
-	Host       string `json:"HOST"`
-	Label      string `json:"LABEL"`
-	Module     string `json:"MODULE"`
-	Type       string `json:"TYPE"`
-}
-
-type Storg_data struct {
-	Uuid  string `json:"uuid"`
-	Entry string `json:"entry"`
-}
-
 func main() {
-	todo1 := Todo{"Test templates", "Let's test a template to see the magic."}
-
-	var todoTemplateStr = "You have a task named \"{{ .Name }}\" with description: \"{{ .Description }}\""
-
-	todoTemplateOut, err := template.New("todos").Parse(todoTemplateStr)
-	if err != nil {
-		panic(err)
-	}
-
-	err = todoTemplateOut.Execute(os.Stdout, todo1)
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println(" ")
 
 	storgJSON := []byte(`{
   "metadatum": {
@@ -68,35 +27,82 @@ func main() {
   }
 }`)
 
-	var storgMap1 map[string]interface{}
+	var storgMap map[string]interface{}
 
-	if err := json.Unmarshal(storgJSON, &storgMap1); err != nil {
+	if err := json.Unmarshal(storgJSON, &storgMap); err != nil {
 		panic(err)
 	}
-	fmt.Println(storgMap1)
+	fmt.Println(storgMap)
 
 	fmt.Println(" ")
 
-	storgMap2 := Storg{}
+	// var testTemplate *template.Template
+	// var err error
+	// testTemplate, err = template.New("hello.gohtml").Funcs(template.FuncMap{
+	// 	"earlierDate": func(date1 string, date2 string) bool {
 
-	json.Unmarshal([]byte(storgJSON), &storgMap2)
+	// 		layout := "<2006-01-02>"
+	// 		time1, err := time.Parse(layout, date1)
+	// 		time2, err := time.Parse(layout, date2)
 
-	fmt.Println(storgMap2)
+	// 		if err != nil {
+	// 			fmt.Println(err)
+	// 		}
 
-	var storgTemplateStr = `
+	// 		if time1.Before(time2) {
+	// 			return true
+	// 		}
+	// 		return false
+	// 	},
+	// }).ParseFiles("hello.gohtml")
+	// if err != nil {
+	// 	panic(err)
+	// }
+
+	// date2 := "<2010-01-01>"
+	// date1 := "<2005-01-01>"
+	// layout := "<2006-01-02>"
+	// time1, err := time.Parse(layout, date1)
+	// time2, err := time.Parse(layout, date2)
+
+	// if time1.Before(time2) {
+	// 	fmt.Println("yes")
+	// } else {
+	// 	fmt.Println("no")
+	// }
+
+	var storgTemplateStr = `{{ $variable := .datum.entry }}
 	* .
 	:PROPERTIES:
 	:HOST: {{ .metadatum.HOST }}
 	:HOST_DATE: {{ if .metadatum.HOST_DATE }} {{ .metadatum.HOST_DATE }} {{ end }}
+    :GUEST_DATE: {{ if earlierDate .metadatum.HOST_DATE "test" }} {{ .metadatum.HOST_DATE }} {{ else }} {{ .metadatum.HOST }} {{ end }}
+    {{ $variable }}
 	`
 
-	// Option("missinkey=zero") prevents the <no value> for non-existent fields
-	storgTemplateOut, err := template.New("nodes").Option("missingkey=zero").Parse(storgTemplateStr)
+	storgTemplateOut, err := template.New("nodes").Funcs(template.FuncMap{
+		"earlierDate": func(date1 string, date2 string) bool {
+
+			layout := "<2006-01-02>"
+			time1, err := time.Parse(layout, date1)
+			time2, err := time.Parse(layout, date2)
+
+			if err != nil {
+				fmt.Println("not a date")
+				return false
+			}
+
+			if time1.Before(time2) {
+				return true
+			}
+			return false
+		},
+	}).Parse(storgTemplateStr)
 	if err != nil {
 		panic(err)
 	}
 
-	err = storgTemplateOut.Execute(os.Stdout, storgMap1)
+	err = storgTemplateOut.Execute(os.Stdout, storgMap)
 	if err != nil {
 		panic(err)
 	}
