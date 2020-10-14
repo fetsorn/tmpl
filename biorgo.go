@@ -1,8 +1,11 @@
 package main
 
 import (
+	// "bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"os"
 	"text/template"
 	"time"
@@ -103,6 +106,54 @@ func main() {
 	}
 
 	err = storgTemplateOut.Execute(os.Stdout, storgMap)
+	if err != nil {
+		panic(err)
+	}
+
+	/* read a storg file*/
+	storgFile, err := ioutil.ReadFile("../test/storg7.json")
+	if err != nil {
+		fmt.Println("File reading error", err)
+		return
+	}
+
+	fmt.Println("Contents of file:", len(string(storgFile)))
+
+	var storgFileMap []interface{}
+
+	if err := json.Unmarshal(storgFile, &storgFileMap); err != nil {
+		panic(err)
+	}
+	fmt.Println(len(storgFileMap))
+
+	var storgFileTemplateStr = `{{ range . }}
+* .
+:PROPERTIES: {{ with .metadatum }}
+:COMMENT: {{ with .COMMENT }}{{ . }}{{ end }}
+:GUEST_DATE: {{ with .GUEST_DATE }}{{ . }}{{ end }}
+:GUEST: {{ with .GUEST }}{{ . }}{{ end }}
+:HOST_DATE: {{ with .HOST_DATE }} {{ . }}{{ end }}
+:HOST: {{ with .HOST }}{{ . }}{{ end }}
+:LABEL: {{ with .LABEL }}{{ . }}{{ end }}
+:MODULE: {{ with .MODULE }}{{ . }}{{ end }}
+:TYPE: {{ with .TYPE }}{{ . }}{{ end }}{{ end }}
+:UUID: {{ with .datum.uuid }}{{ . }}{{ end }}
+:END:
+{{ with .datum.entry }}{{ . }}{{ end }}{{ end }}`
+
+	storgFileTemplateOut, err := template.New("nodes").Parse(storgFileTemplateStr)
+	if err != nil {
+		panic(err)
+	}
+
+	file, err := os.Create("test.org")
+
+	if err != nil {
+		log.Fatalf("failed creating file: %s", err)
+	}
+
+	//	var tpl bytes.Buffer
+	err = storgFileTemplateOut.Execute(file, storgFileMap)
 	if err != nil {
 		panic(err)
 	}
