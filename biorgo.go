@@ -18,7 +18,7 @@ import (
 
 // tbn
 
-// earlierDate tells if date1 is earlier than date2
+// tell if date1 is earlier than date2
 func earlierDate(date1 string, date2 string) bool {
 
 	layout := "<2006-01-02>"
@@ -36,7 +36,7 @@ func earlierDate(date1 string, date2 string) bool {
 	return false
 }
 
-// parses storg json
+// parse storg json
 func parseStorg() []map[string]interface{} {
 
 	// read a storg file
@@ -58,7 +58,7 @@ func parseStorg() []map[string]interface{} {
 	return storgMap
 }
 
-// sorts storg by key in ascending order
+// sort storg by key in ascending order
 func sortStorg(storg []map[string]interface{}, key string) []map[string]interface{} {
 
 	sort.SliceStable(storg, func(i, j int) bool {
@@ -78,13 +78,36 @@ func sortStorg(storg []map[string]interface{}, key string) []map[string]interfac
 	return storg
 }
 
-// uniqueDate filters storg oldArray with key
-func uniqueDate(arrayOld []map[string]interface{}, key string) []map[string]interface{} {
-	arrayNew := []map[string]interface{}{}
+// filter storg by key value
+func filterStorg(storgOld []map[string]interface{}, key string, value string) []map[string]interface{} {
 
-	for _, node := range arrayOld {
-		if !contains(arrayNew[:], node, key) {
-			arrayNew = append(arrayNew, node)
+	storgNew := []map[string]interface{}{}
+
+	for _, node := range storgOld {
+		if equals(node, key, value) {
+			storgNew = append(storgNew, node)
+		}
+	}
+
+	return storgNew
+}
+
+// tell if a storg node has value
+func equals(node map[string]interface{}, key string, keyword string) bool {
+
+	meta := node["metadatum"].(map[string]interface{})
+	value := meta[key].(string)
+
+	return value == keyword
+}
+
+// filter storg oldArray by unique key
+func uniqueDate(storgOld []map[string]interface{}, key string) []map[string]interface{} {
+	storgNew := []map[string]interface{}{}
+
+	for _, node := range storgOld {
+		if !contains(storgNew[:], node, key) {
+			storgNew = append(storgNew, node)
 		}
 	}
 
@@ -94,10 +117,10 @@ func uniqueDate(arrayOld []map[string]interface{}, key string) []map[string]inte
 	// 		r = append(r, s)
 	// 	}
 	// }
-	return arrayNew
+	return storgNew
 }
 
-// contains tells if a storg array contains elements with the same key value as elementNew
+// tell if a storg array contains elements with the same key value as elementNew
 func contains(array []map[string]interface{}, elementNew map[string]interface{}, key string) bool {
 
 	metaNew := elementNew["metadatum"].(map[string]interface{})
@@ -125,10 +148,47 @@ func contains(array []map[string]interface{}, elementNew map[string]interface{},
 	return false
 }
 
-// reached2400 tells if node index is divisible by 2400
+// tell if node index is divisible by 2400
 // allows to partition dates in dot notation and avoid graphviz error
 func reached2400(index int) bool {
 	return index%2400 == 0
+}
+
+// filter storg by key in a time period between start and end
+func betweenDates(storgOld []map[string]interface{}, key string, start string, end string) []map[string]interface{} {
+
+	storgNew := []map[string]interface{}{}
+
+	for _, node := range storgOld {
+		if between(node, key, start, end) {
+			storgNew = append(storgNew, node)
+		}
+	}
+
+	return storgNew
+}
+
+// tell if node key value is between start and period
+func between(node map[string]interface{}, key string, start string, end string) bool {
+
+	meta := node["metadatum"].(map[string]interface{})
+	date := meta[key].(string)
+
+	layout := "<2006-01-02>"
+	timeNode, err := time.Parse(layout, date)
+	timeStart, err := time.Parse(layout, start)
+	timeEnd, err := time.Parse(layout, end)
+
+	if err != nil {
+		// fmt.Println("not a date")
+		return false
+	}
+
+	if timeNode.After(timeStart) && timeNode.Before(timeEnd) {
+		return true
+	}
+
+	return false
 }
 
 // tbn
@@ -226,7 +286,7 @@ func templateTest() {
 func generateDesmi(storg []map[string]interface{}) {
 
 	/* read a go template*/
-	templateDesmiStr, err := ioutil.ReadFile("desmi.txt")
+	templateDesmiStr, err := ioutil.ReadFile("desmi.tmpl")
 
 	if err != nil {
 		fmt.Println("File reading error", err)
@@ -248,7 +308,7 @@ func generateDesmi(storg []map[string]interface{}) {
 	// :END:
 	// {{ with .datum.entry }}{{ . }}{{ end }}{{ end }}`
 
-	customFunctionsDesmi := template.FuncMap{"sortStorg": sortStorg}
+	customFunctionsDesmi := template.FuncMap{"sortStorg": sortStorg, "filterStorg": filterStorg, "betweenDates": betweenDates}
 
 	templateDesmiOut, err := template.New("nodesDesmi").Funcs(customFunctionsDesmi).Parse(string(templateDesmiStr))
 	if err != nil {
@@ -288,13 +348,13 @@ func generateDot(storg []map[string]interface{}) {
 	}
 
 	// read a template
-	templateDotStr, err := ioutil.ReadFile("dot.txt")
+	templateDotStr, err := ioutil.ReadFile("dot.tmpl")
 	if err != nil {
 		fmt.Println("File reading error", err)
 		return
 	}
 
-	customFunctionsDot := template.FuncMap{"uniqueDate": uniqueDate, "reached2400": reached2400, "sortStorg": sortStorg}
+	customFunctionsDot := template.FuncMap{"uniqueDate": uniqueDate, "reached2400": reached2400, "sortStorg": sortStorg, "filterStorg": filterStorg, "betweenDates": betweenDates}
 
 	templateDotOut, err := template.New("nodesDot").Funcs(customFunctionsDot).Parse(string(templateDotStr))
 	if err != nil {
