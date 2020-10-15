@@ -4,7 +4,7 @@ package main
 
 // Biorgo generates reports from a JSON array of Biorg entries called storg
 import (
-	// "bytes"
+	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -15,6 +15,8 @@ import (
 	"strings"
 	"text/template"
 	"time"
+
+	"github.com/niklasfasching/go-org/org"
 )
 
 // tbn
@@ -194,7 +196,7 @@ func between(node map[string]interface{}, key string, start string, end string) 
 
 // tbn
 
-// feeds json to a template, prints a biorg entry
+// feed json to a template, print a biorg entry
 func templateTest() {
 
 	/***********************/
@@ -283,7 +285,7 @@ func templateTest() {
 	}
 }
 
-// generates Biorg desmi from storg
+// generate Biorg desmi from storg
 func generateDesmi(storg []map[string]interface{}, templatePath string, outputPath string) {
 
 	// read a go template
@@ -328,7 +330,7 @@ func generateDesmi(storg []map[string]interface{}, templatePath string, outputPa
 	}
 }
 
-// generates dot notation
+// generate dot notation
 func generateDot(storg []map[string]interface{}, templatePath string, outputPath string) {
 
 	// format storg entries to prevent graphviz errors
@@ -375,7 +377,7 @@ func generateDot(storg []map[string]interface{}, templatePath string, outputPath
 
 }
 
-// generates ravdia org files
+// generate ravdia org files
 func generateRavdia(storg []map[string]interface{}, templatePath string, outputPath string) {
 
 	// read a template
@@ -413,30 +415,121 @@ func generateRavdia(storg []map[string]interface{}, templatePath string, outputP
 
 }
 
+type Biorg struct {
+	Metadatum struct {
+		Comment    string `json:"COMMENT"`
+		Guest_date string `json:"GUEST_DATE"`
+		Guest      string `json:"GUEST"`
+		Host_date  string `json:"HOST_DATE"`
+		Host       string `json:"HOST"`
+		Label      string `json:"LABEL"`
+		Module     string `json:"MODULE"`
+		Type       string `json:"TYPE"`
+	} `json:"metadatum"`
+	Datum struct {
+		Uuid  string `json:"uuid"`
+		Entry string `json:"entry"`
+	} `json:"datum"`
+}
+
+// parse Biorg node to json
+func parseNodeToJSON(node org.Headline) string {
+
+	var biorg Biorg
+
+	biorg.Metadatum.Comment, _ = node.Properties.Get("COMMENT")
+	biorg.Metadatum.Guest_date, _ = node.Properties.Get("GUEST_DATE")
+	biorg.Metadatum.Guest, _ = node.Properties.Get("GUEST")
+	biorg.Metadatum.Host_date, _ = node.Properties.Get("HOST_DATE")
+	biorg.Metadatum.Host, _ = node.Properties.Get("HOST")
+	biorg.Metadatum.Label, _ = node.Properties.Get("LABEL")
+	biorg.Metadatum.Module, _ = node.Properties.Get("MODULE")
+	biorg.Metadatum.Type, _ = node.Properties.Get("TYPE")
+	biorg.Datum.Uuid, _ = node.Properties.Get("UUID")
+
+	var entry string
+
+	for _, child := range node.Children {
+		entry += org.NewOrgWriter().WriteNodesAsString(child)
+	}
+
+	biorg.Datum.Entry = entry
+
+	storg, _ := json.Marshal(biorg)
+
+	return string(storg)
+}
+
+// parse Biorg file to json
+func parseBiorgToJSON(inputPath string, outputPath string) {
+
+	bs, err := ioutil.ReadFile(inputPath)
+	if err != nil {
+		return
+	}
+	d := org.New().Parse(bytes.NewReader(bs), inputPath)
+
+	if outputPath == "empty" {
+		fmt.Println("[")
+		for _, node := range d.Nodes {
+			switch node := node.(type) {
+			case org.Headline:
+				if node.Lvl == 1 {
+					fmt.Println(parseNodeToJSON(node))
+					fmt.Print(",")
+				}
+			}
+		}
+		fmt.Println("{}")
+		fmt.Println("]")
+	} else {
+		file, err := os.Create(outputPath)
+		if err != nil {
+			log.Fatalf("failed creating file: %s", err)
+		}
+
+		file.WriteString("[")
+		for _, node := range d.Nodes {
+			switch node := node.(type) {
+			case org.Headline:
+				if node.Lvl == 1 {
+					file.WriteString(parseNodeToJSON(node))
+					file.WriteString(",")
+				}
+			}
+		}
+		file.WriteString("{}")
+		file.WriteString("]")
+		file.Close()
+	}
+}
+
 func main() {
 
 	var reportType string
-	var storgPath string
+	var inputPath string
 	var templatePath string
 	var outputPath string
 
 	// flags declaration using flag package
-	flag.StringVar(&reportType, "r", "report", "Please choose a report type: desmi, dot")
-	flag.StringVar(&storgPath, "s", "storg.json", "Please specify storg path")
-	flag.StringVar(&templatePath, "t", "go.tmpl", "Please specify template path")
-	flag.StringVar(&outputPath, "o", "output.txt", "Please specify output path")
+	flag.StringVar(&reportType, "c", "empty", "Please choose command: desmi, dot, ravdia, json")
+	flag.StringVar(&inputPath, "i", "empty", "Please specify storg path")
+	flag.StringVar(&templatePath, "t", "empty", "Please specify template path")
+	flag.StringVar(&outputPath, "o", "empty", "Please specify output path")
 
 	flag.Parse() // after declaring flags we need to call it
 
 	if reportType == "desmi" {
-		var storg = parseStorg(storgPath)
+		var storg = parseStorg(inputPath)
 		generateDesmi(storg, templatePath, outputPath)
 	} else if reportType == "dot" {
-		var storg = parseStorg(storgPath)
+		var storg = parseStorg(inputPath)
 		generateDot(storg, templatePath, outputPath)
 	} else if reportType == "ravdia" {
-		var storg = parseStorg(storgPath)
+		var storg = parseStorg(inputPath)
 		generateRavdia(storg, templatePath, outputPath)
+	} else if reportType == "json" {
+		parseBiorgToJSON(inputPath, outputPath)
 	} else {
 		help := `Usage of ./biorgo:
   -o string

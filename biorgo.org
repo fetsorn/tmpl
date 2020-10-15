@@ -38,10 +38,9 @@
   {{ with betweenDates . "HOST_DATE" "<2016-01-01>" "<2017-01-01>" }}{{ end }}
   #+END_SRC
 * templates
-** desmi
-#+BEGIN_SRC go :tangle templates/desmi.tmpl
-{{ with betweenDates . "HOST_DATE" "<2016-01-01>" "<2017-01-01>" }}{{ range sortStorg . "GUEST_DATE" }}
-,* .
+** desmi complete sorted by HOST_DATE
+#+BEGIN_SRC go :tangle templates/desmi-all-host-asc.tmpl
+{{ range sortStorg . "HOST_DATE" }}* .
 :PROPERTIES: {{ with .metadatum }}
 :COMMENT: {{ with .COMMENT }}{{ . }}{{ end }}
 :GUEST_DATE: {{ with .GUEST_DATE }}{{ . }}{{ end }}
@@ -53,7 +52,23 @@
 :TYPE: {{ with .TYPE }}{{ . }}{{ end }}{{ end }}
 :UUID: {{ with .datum.uuid }}{{ . }}{{ end }}
 :END:
-{{ with .datum.entry }}{{ . }}{{ end }}{{ end }}{{ end}}
+{{ with .datum.entry }}{{ . }}{{ end }}{{ end }}
+#+END_SRC
+** desmi complete sorted by GUEST_DATE
+#+BEGIN_SRC go :tangle templates/desmi-all-guest-asc.tmpl
+{{ range sortStorg . "GUEST_DATE" }}* .
+:PROPERTIES: {{ with .metadatum }}
+:COMMENT: {{ with .COMMENT }}{{ . }}{{ end }}
+:GUEST_DATE: {{ with .GUEST_DATE }}{{ . }}{{ end }}
+:GUEST: {{ with .GUEST }}{{ . }}{{ end }}
+:HOST_DATE: {{ with .HOST_DATE }} {{ . }}{{ end }}
+:HOST: {{ with .HOST }}{{ . }}{{ end }}
+:LABEL: {{ with .LABEL }}{{ . }}{{ end }}
+:MODULE: {{ with .MODULE }}{{ . }}{{ end }}
+:TYPE: {{ with .TYPE }}{{ . }}{{ end }}{{ end }}
+:UUID: {{ with .datum.uuid }}{{ . }}{{ end }}
+:END:
+{{ with .datum.entry }}{{ . }}{{ end }}{{ end }}
 #+END_SRC
 ** dot
 #+BEGIN_SRC go :tangle templates/dot.tmpl
