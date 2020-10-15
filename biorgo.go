@@ -10,10 +10,13 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"sort"
 	"strings"
 	"text/template"
 	"time"
 )
+
+// tbn
 
 // earlierDate tells if date1 is earlier than date2
 func earlierDate(date1 string, date2 string) bool {
@@ -33,13 +36,55 @@ func earlierDate(date1 string, date2 string) bool {
 	return false
 }
 
-// uniqueDate filters storg oldArray with key
-func uniqueDate(oldArray []map[string]interface{}, key string) []map[string]interface{} {
-	newArray := []map[string]interface{}{}
+// parses storg json
+func parseStorg() []map[string]interface{} {
 
-	for _, node := range oldArray {
-		if !contains(newArray[:], node, key) {
-			newArray = append(newArray, node)
+	// read a storg file
+	storgFile, err := ioutil.ReadFile("../test/storg7.json")
+	if err != nil {
+		fmt.Println("File reading error", err)
+		return nil
+	}
+
+	// fmt.Println("Contents of file:", len(string(storgFile)))
+
+	var storgMap []map[string]interface{}
+
+	if err := json.Unmarshal(storgFile, &storgMap); err != nil {
+		panic(err)
+	}
+	fmt.Println("Number of nodes:", len(storgMap))
+
+	return storgMap
+}
+
+// sorts storg by key in ascending order
+func sortStorg(storg []map[string]interface{}, key string) []map[string]interface{} {
+
+	sort.SliceStable(storg, func(i, j int) bool {
+
+		nodeLast := storg[i]
+		nodeNext := storg[j]
+
+		metaLast := nodeLast["metadatum"].(map[string]interface{})
+		keyLast := metaLast[key].(string)
+
+		metaNext := nodeNext["metadatum"].(map[string]interface{})
+		keyNext := metaNext[key].(string)
+
+		return keyLast < keyNext
+	})
+
+	return storg
+}
+
+// uniqueDate filters storg oldArray with key
+func uniqueDate(arrayOld []map[string]interface{}, key string) []map[string]interface{} {
+	arrayNew := []map[string]interface{}{}
+
+	for _, node := range arrayOld {
+		if !contains(arrayNew[:], node, key) {
+			arrayNew = append(arrayNew, node)
 		}
 	}
 
@@ -49,7 +94,7 @@ func uniqueDate(oldArray []map[string]interface{}, key string) []map[string]inte
 	// 		r = append(r, s)
 	// 	}
 	// }
-	return newArray
+	return arrayNew
 }
 
 // contains tells if a storg array contains elements with the same key value as elementNew
@@ -80,20 +125,13 @@ func contains(array []map[string]interface{}, elementNew map[string]interface{},
 	return false
 }
 
-// func contains(e []string, c string) bool {
-// 	for _, s := range e {
-// 		if s == c {
-// 			return true
-// 		}
-// 	}
-// 	return false
-// }
-
-// reached2400 tells if node index is divisible by reached2400
+// reached2400 tells if node index is divisible by 2400
 // allows to partition dates in dot notation and avoid graphviz error
 func reached2400(index int) bool {
 	return index%2400 == 0
 }
+
+// tbn
 
 // feeds json to a template, prints a biorg entry
 func templateTest() {
@@ -184,28 +222,6 @@ func templateTest() {
 	}
 }
 
-// parses storg json
-func parseStorg() []map[string]interface{} {
-
-	// read a storg file
-	storgFile, err := ioutil.ReadFile("../test/storg7.json")
-	if err != nil {
-		fmt.Println("File reading error", err)
-		return nil
-	}
-
-	// fmt.Println("Contents of file:", len(string(storgFile)))
-
-	var storgMap []map[string]interface{}
-
-	if err := json.Unmarshal(storgFile, &storgMap); err != nil {
-		panic(err)
-	}
-	fmt.Println("Number of nodes:", len(storgMap))
-
-	return storgMap
-}
-
 // generates Biorg desmi from storg
 func generateDesmi(storg []map[string]interface{}) {
 
@@ -232,7 +248,9 @@ func generateDesmi(storg []map[string]interface{}) {
 	// :END:
 	// {{ with .datum.entry }}{{ . }}{{ end }}{{ end }}`
 
-	templateDesmiOut, err := template.New("nodesDesmi").Parse(string(templateDesmiStr))
+	customFunctionsDesmi := template.FuncMap{"sortStorg": sortStorg}
+
+	templateDesmiOut, err := template.New("nodesDesmi").Funcs(customFunctionsDesmi).Parse(string(templateDesmiStr))
 	if err != nil {
 		panic(err)
 	}
@@ -276,7 +294,7 @@ func generateDot(storg []map[string]interface{}) {
 		return
 	}
 
-	customFunctionsDot := template.FuncMap{"uniqueDate": uniqueDate, "reached2400": reached2400}
+	customFunctionsDot := template.FuncMap{"uniqueDate": uniqueDate, "reached2400": reached2400, "sortStorg": sortStorg}
 
 	templateDotOut, err := template.New("nodesDot").Funcs(customFunctionsDot).Parse(string(templateDotStr))
 	if err != nil {

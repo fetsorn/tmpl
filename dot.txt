@@ -1,3 +1,4 @@
+{{ with sortStorg . "HOST_DATE" }}
 digraph storg_timeline {
 imap=yes;
 node [shape="plain"];rankdir=TB;
@@ -23,3 +24,4 @@ node [shape="plain"];rankdir=TB;
 "{{ $nodeIndex }}" [label="*",tooltip="{{ printf "%.50s" $node.datum.entry }}",href="ravdia/{{ $node.datum.uuid }}.org",target="_blank"];{{ end }}
 
 }
+{{ end }}

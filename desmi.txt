@@ -1,4 +1,4 @@
-{{ range . }}
+{{ range sortStorg . "HOST_DATE" }}
 * .
 :PROPERTIES: {{ with .metadatum }}
 :COMMENT: {{ with .COMMENT }}{{ . }}{{ end }}
