@@ -6,6 +6,7 @@ package main
 import (
 	// "bytes"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -37,10 +38,10 @@ func earlierDate(date1 string, date2 string) bool {
 }
 
 // parse storg json
-func parseStorg() []map[string]interface{} {
+func parseStorg(storgPath string) []map[string]interface{} {
 
 	// read a storg file
-	storgFile, err := ioutil.ReadFile("../test/storg7.json")
+	storgFile, err := ioutil.ReadFile(storgPath)
 	if err != nil {
 		fmt.Println("File reading error", err)
 		return nil
@@ -283,10 +284,10 @@ func templateTest() {
 }
 
 // generates Biorg desmi from storg
-func generateDesmi(storg []map[string]interface{}) {
+func generateDesmi(storg []map[string]interface{}, templatePath string, outputPath string) {
 
-	/* read a go template*/
-	templateDesmiStr, err := ioutil.ReadFile("desmi.tmpl")
+	// read a go template
+	templateDesmiStr, err := ioutil.ReadFile(templatePath)
 
 	if err != nil {
 		fmt.Println("File reading error", err)
@@ -315,7 +316,7 @@ func generateDesmi(storg []map[string]interface{}) {
 		panic(err)
 	}
 
-	fileDesmi, err := os.Create("test.org")
+	fileDesmi, err := os.Create(outputPath)
 
 	if err != nil {
 		log.Fatalf("failed creating file: %s", err)
@@ -329,7 +330,7 @@ func generateDesmi(storg []map[string]interface{}) {
 }
 
 // generates dot notation
-func generateDot(storg []map[string]interface{}) {
+func generateDot(storg []map[string]interface{}, templatePath string, outputPath string) {
 
 	// format storg entries to prevent graphviz errors
 	for _, node := range storg {
@@ -348,7 +349,7 @@ func generateDot(storg []map[string]interface{}) {
 	}
 
 	// read a template
-	templateDotStr, err := ioutil.ReadFile("dot.tmpl")
+	templateDotStr, err := ioutil.ReadFile(templatePath)
 	if err != nil {
 		fmt.Println("File reading error", err)
 		return
@@ -361,7 +362,7 @@ func generateDot(storg []map[string]interface{}) {
 		panic(err)
 	}
 
-	fileDot, err := os.Create("test.dot")
+	fileDot, err := os.Create(outputPath)
 
 	if err != nil {
 		log.Fatalf("failed creating file: %s", err)
@@ -377,12 +378,36 @@ func generateDot(storg []map[string]interface{}) {
 
 func main() {
 
-	// templateTest()
+	var reportType string
+	var storgPath string
+	var templatePath string
+	var outputPath string
 
-	var storg = parseStorg()
+	// flags declaration using flag package
+	flag.StringVar(&reportType, "r", "report", "Please choose a report type: desmi, dot")
+	flag.StringVar(&storgPath, "s", "storg.json", "Please specify storg path")
+	flag.StringVar(&templatePath, "t", "go.tmpl", "Please specify template path")
+	flag.StringVar(&outputPath, "o", "output.txt", "Please specify output path")
 
-	generateDesmi(storg)
+	flag.Parse() // after declaring flags we need to call it
 
-	generateDot(storg)
+	if reportType == "desmi" {
+		var storg = parseStorg(storgPath)
+		generateDesmi(storg, templatePath, outputPath)
+	} else if reportType == "dot" {
+		var storg = parseStorg(storgPath)
+		generateDot(storg, templatePath, outputPath)
+	} else {
+		help := `Usage of ./biorgo:
+  -o string
+        Please specify output path (default "output.txt")
+  -r string
+        Please choose a report type: desmi, dot (default "report")
+  -s string
+        Please specify storg path (default "storg.json")
+  -t string
+        Please specify template path (default "go.tmpl")`
 
+		fmt.Println(help)
+	}
 }
