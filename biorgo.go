@@ -1,5 +1,8 @@
+// Copyright © 2020 Anton Davydov <fetsorn@gmail.com>.
+
 package main
 
+// Biorgo generates reports from a JSON array called storg that holds Biorg entries
 import (
 	// "bytes"
 	"encoding/json"
@@ -12,6 +15,7 @@ import (
 	"time"
 )
 
+// earlierDate tells if date1 is earlier than date2
 func earlierDate(date1 string, date2 string) bool {
 
 	layout := "<2006-01-02>"
@@ -29,6 +33,7 @@ func earlierDate(date1 string, date2 string) bool {
 	return false
 }
 
+// uniqueDate filters storg oldArray with key
 func uniqueDate(oldArray []map[string]interface{}, key string) []map[string]interface{} {
 	newArray := []map[string]interface{}{}
 
@@ -47,6 +52,7 @@ func uniqueDate(oldArray []map[string]interface{}, key string) []map[string]inte
 	return newArray
 }
 
+// contains tells if a storg array contains elements with the same key value as elementNew
 func contains(array []map[string]interface{}, elementNew map[string]interface{}, key string) bool {
 
 	metaNew := elementNew["metadatum"].(map[string]interface{})
@@ -83,11 +89,14 @@ func contains(array []map[string]interface{}, elementNew map[string]interface{},
 // 	return false
 // }
 
+// reached2400 tells if node index is divisible by reached2400
+// allows to partition dates in dot notation and avoid graphviz error
 func reached2400(index int) bool {
 	return index%2400 == 0
 }
 
-func main() {
+// feeds json to a template, prints a biorg entry
+func templateTest() {
 
 	/***********************/
 	/*feed json to template*/
@@ -173,46 +182,36 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+}
 
-	/****************/
-	/*generate desmi*/
-	/****************/
+// parses storg json
+func parseStorg() []map[string]interface{} {
 
-	/* read a storg file*/
+	// read a storg file
 	storgFile, err := ioutil.ReadFile("../test/storg7.json")
 	if err != nil {
 		fmt.Println("File reading error", err)
-		return
+		return nil
 	}
 
-	fmt.Println("Contents of file:", len(string(storgFile)))
+	// fmt.Println("Contents of file:", len(string(storgFile)))
 
-	var storgFileMap []map[string]interface{}
+	var storgMap []map[string]interface{}
 
-	if err := json.Unmarshal(storgFile, &storgFileMap); err != nil {
+	if err := json.Unmarshal(storgFile, &storgMap); err != nil {
 		panic(err)
 	}
-	fmt.Println(len(storgFileMap))
+	fmt.Println("Number of nodes:", len(storgMap))
 
-	/* format entries */
-	for _, node := range storgFileMap {
-		datum := node["datum"].(map[string]interface{})
-		// remove symbols instead of escaping because backslashes might otherwise escape closing quotes
-		// DO NOT REUSE FOR RAVDIA, BREAKS VALIDITY
-		// remote newlines
-		entry := datum["entry"].(string)
-		datum["entry"] = strings.Replace(entry, "\n", "", -1)
-		// remove quotes
-		entry = datum["entry"].(string)
-		datum["entry"] = strings.Replace(entry, "\"", "", -1)
-		// remove the line tabulation character
-		entry = datum["entry"].(string)
-		datum["entry"] = strings.Replace(entry, "", "", -1)
+	return storgMap
+}
 
-	}
+// generates Biorg desmi from storg
+func generateDesmi(storg []map[string]interface{}) {
 
 	/* read a go template*/
 	templateDesmiStr, err := ioutil.ReadFile("desmi.txt")
+
 	if err != nil {
 		fmt.Println("File reading error", err)
 		return
@@ -245,15 +244,32 @@ func main() {
 	}
 
 	//	var tpl bytes.Buffer
-	err = templateDesmiOut.Execute(fileDesmi, storgFileMap)
+	err = templateDesmiOut.Execute(fileDesmi, storg)
 	if err != nil {
 		panic(err)
 	}
+}
 
-	/**************/
-	/*generate svg*/
-	/**************/
+// generates dot notation
+func generateDot(storg []map[string]interface{}) {
 
+	// format storg entries to prevent graphviz errors
+	for _, node := range storg {
+		datum := node["datum"].(map[string]interface{})
+		// remove symbols instead of escaping because backslashes might otherwise escape closing quotes
+		// DO NOT REUSE FOR RAVDIA, BREAKS VALIDITY
+		// remote newlines
+		entry := datum["entry"].(string)
+		datum["entry"] = strings.Replace(entry, "\n", "", -1)
+		// remove quotes
+		entry = datum["entry"].(string)
+		datum["entry"] = strings.Replace(entry, "\"", "", -1)
+		// remove the line tabulation character
+		entry = datum["entry"].(string)
+		datum["entry"] = strings.Replace(entry, "", "", -1)
+	}
+
+	// read a template
 	templateDotStr, err := ioutil.ReadFile("dot.txt")
 	if err != nil {
 		fmt.Println("File reading error", err)
@@ -274,9 +290,21 @@ func main() {
 	}
 
 	//	var tpl bytes.Buffer
-	err = templateDotOut.Execute(fileDot, storgFileMap)
+	err = templateDotOut.Execute(fileDot, storg)
 	if err != nil {
 		panic(err)
 	}
+
+}
+
+func main() {
+
+	// templateTest()
+
+	var storg = parseStorg()
+
+	generateDesmi(storg)
+
+	generateDot(storg)
 
 }
