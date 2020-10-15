@@ -11,11 +11,14 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"text/template"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/niklasfasching/go-org/org"
 )
 
@@ -415,6 +418,8 @@ func generateRavdia(storg []map[string]interface{}, templatePath string, outputP
 
 }
 
+// tbn
+
 type Biorg struct {
 	Metadatum struct {
 		Comment    string `json:"COMMENT"`
@@ -504,43 +509,99 @@ func parseBiorgToJSON(inputPath string, outputPath string) {
 	}
 }
 
+// prepare files in directory inputPath for biorg
+func prepareFiles(inputPath string, templatePath string, outputPath string) {
+
+	storgArray := []map[string]interface{}{}
+
+	// parse file into the Biorg struct
+	var walkFunction = func(path string, info os.FileInfo, err error) error {
+
+		if !info.IsDir() {
+			var biorg Biorg
+
+			layout := "<2006-01-02>"
+			modTime := info.ModTime().Format(layout)
+
+			biorg.Metadatum.Comment = ""
+			biorg.Metadatum.Guest_date = modTime
+			biorg.Metadatum.Guest = "fetsorn"
+			biorg.Metadatum.Host_date = modTime
+			biorg.Metadatum.Host = "fetsorn"
+			biorg.Metadatum.Label = ""
+			biorg.Metadatum.Module = ""
+			biorg.Metadatum.Type = ""
+			biorg.Datum.Uuid = uuid.New().String()
+
+			entry, err := ioutil.ReadFile(path)
+			if err != nil {
+				fmt.Printf("error reading file %v", path)
+			}
+
+			biorg.Datum.Entry = string(entry)
+
+			// increment all org headings by one level
+			// legacy solution that imitates previous manual commits
+			re := regexp.MustCompile(`(?m)^\*`)
+			biorg.Datum.Entry = re.ReplaceAllString(biorg.Datum.Entry, "**")
+
+			storgNode, _ := json.Marshal(biorg)
+
+			var storgMap map[string]interface{}
+
+			if err := json.Unmarshal(storgNode, &storgMap); err != nil {
+				panic(err)
+			}
+
+			storgArray = append(storgArray, storgMap)
+		}
+		return err
+	}
+
+	err := filepath.Walk(inputPath, walkFunction)
+	if err != nil {
+		fmt.Printf("error walking the path %q: %v\n", inputPath, err)
+	}
+
+	outputType := filepath.Ext(outputPath)
+	if outputType == ".org" {
+		generateDesmi(storgArray, templatePath, outputPath)
+	} else if outputType == ".json" {
+		storg, _ := json.Marshal(storgArray)
+		file, _ := os.Create(outputPath)
+		file.WriteString(string(storg))
+	}
+
+}
+
 func main() {
 
-	var reportType string
+	var commandType string
 	var inputPath string
 	var templatePath string
 	var outputPath string
 
 	// flags declaration using flag package
-	flag.StringVar(&reportType, "c", "empty", "Please choose command: desmi, dot, ravdia, json")
+	flag.StringVar(&commandType, "c", "empty", "Please specify command: desmi, dot, ravdia, json, prepare")
 	flag.StringVar(&inputPath, "i", "empty", "Please specify storg path")
 	flag.StringVar(&templatePath, "t", "empty", "Please specify template path")
 	flag.StringVar(&outputPath, "o", "empty", "Please specify output path")
 
 	flag.Parse() // after declaring flags we need to call it
 
-	if reportType == "desmi" {
+	if commandType == "desmi" {
 		var storg = parseStorg(inputPath)
 		generateDesmi(storg, templatePath, outputPath)
-	} else if reportType == "dot" {
+	} else if commandType == "dot" {
 		var storg = parseStorg(inputPath)
 		generateDot(storg, templatePath, outputPath)
-	} else if reportType == "ravdia" {
+	} else if commandType == "ravdia" {
 		var storg = parseStorg(inputPath)
 		generateRavdia(storg, templatePath, outputPath)
-	} else if reportType == "json" {
+	} else if commandType == "json" {
 		parseBiorgToJSON(inputPath, outputPath)
-	} else {
-		help := `Usage of ./biorgo:
-  -o string
-        Please specify output path (default "output.txt")
-  -r string
-        Please choose a report type: desmi, dot (default "report")
-  -s string
-        Please specify storg path (default "storg.json")
-  -t string
-        Please specify template path (default "go.tmpl")`
-
-		fmt.Println(help)
+	} else if commandType == "prepare" {
+		prepareFiles(inputPath, templatePath, outputPath)
 	}
+	// TODO: show usage when no arguments are specified
 }
