@@ -39,7 +39,7 @@
   #+END_SRC
 * templates
 ** desmi
-#+BEGIN_SRC go :tangle desmi.tmpl
+#+BEGIN_SRC go :tangle templates/desmi.tmpl
 {{ with betweenDates . "HOST_DATE" "<2016-01-01>" "<2017-01-01>" }}{{ range sortStorg . "GUEST_DATE" }}
 ,* .
 :PROPERTIES: {{ with .metadatum }}
@@ -56,7 +56,7 @@
 {{ with .datum.entry }}{{ . }}{{ end }}{{ end }}{{ end}}
 #+END_SRC
 ** dot
-#+BEGIN_SRC go :tangle dot.tmpl
+#+BEGIN_SRC go :tangle templates/dot.tmpl
 {{ with sortStorg . "HOST_DATE" }}{{ with filterStorg . "MODULE" "journal" }}
 digraph storg_timeline {
 imap=yes;
@@ -84,4 +84,20 @@ node [shape="plain"];rankdir=TB;
 
 }
 {{ end }}{{ end }}
+#+END_SRC
+** ravdia
+#+BEGIN_SRC go :tangle templates/ravdia.tmpl
+,* .
+:PROPERTIES: {{ with .metadatum }}
+:COMMENT: {{ with .COMMENT }}{{ . }}{{ end }}
+:GUEST_DATE: {{ with .GUEST_DATE }}{{ . }}{{ end }}
+:GUEST: {{ with .GUEST }}{{ . }}{{ end }}
+:HOST_DATE: {{ with .HOST_DATE }} {{ . }}{{ end }}
+:HOST: {{ with .HOST }}{{ . }}{{ end }}
+:LABEL: {{ with .LABEL }}{{ . }}{{ end }}
+:MODULE: {{ with .MODULE }}{{ . }}{{ end }}
+:TYPE: {{ with .TYPE }}{{ . }}{{ end }}{{ end }}
+:UUID: {{ with .datum.uuid }}{{ . }}{{ end }}
+:END:
+{{ with .datum.entry }}{{ . }}{{ end }}
 #+END_SRC

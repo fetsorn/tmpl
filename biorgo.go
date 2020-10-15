@@ -2,7 +2,7 @@
 
 package main
 
-// Biorgo generates reports from a JSON array called storg that holds Biorg entries
+// Biorgo generates reports from a JSON array of Biorg entries called storg
 import (
 	// "bytes"
 	"encoding/json"
@@ -287,8 +287,7 @@ func templateTest() {
 func generateDesmi(storg []map[string]interface{}, templatePath string, outputPath string) {
 
 	// read a go template
-	templateDesmiStr, err := ioutil.ReadFile(templatePath)
-
+	templateString, err := ioutil.ReadFile(templatePath)
 	if err != nil {
 		fmt.Println("File reading error", err)
 		return
@@ -309,21 +308,21 @@ func generateDesmi(storg []map[string]interface{}, templatePath string, outputPa
 	// :END:
 	// {{ with .datum.entry }}{{ . }}{{ end }}{{ end }}`
 
-	customFunctionsDesmi := template.FuncMap{"sortStorg": sortStorg, "filterStorg": filterStorg, "betweenDates": betweenDates}
+	customFunctions := template.FuncMap{"sortStorg": sortStorg, "filterStorg": filterStorg, "betweenDates": betweenDates}
 
-	templateDesmiOut, err := template.New("nodesDesmi").Funcs(customFunctionsDesmi).Parse(string(templateDesmiStr))
+	templateStruct, err := template.New("nodesDesmi").Funcs(customFunctions).Parse(string(templateString))
 	if err != nil {
 		panic(err)
 	}
 
-	fileDesmi, err := os.Create(outputPath)
+	file, err := os.Create(outputPath)
 
 	if err != nil {
 		log.Fatalf("failed creating file: %s", err)
 	}
 
 	//	var tpl bytes.Buffer
-	err = templateDesmiOut.Execute(fileDesmi, storg)
+	err = templateStruct.Execute(file, storg)
 	if err != nil {
 		panic(err)
 	}
@@ -349,29 +348,67 @@ func generateDot(storg []map[string]interface{}, templatePath string, outputPath
 	}
 
 	// read a template
-	templateDotStr, err := ioutil.ReadFile(templatePath)
+	templateString, err := ioutil.ReadFile(templatePath)
 	if err != nil {
 		fmt.Println("File reading error", err)
 		return
 	}
 
-	customFunctionsDot := template.FuncMap{"uniqueDate": uniqueDate, "reached2400": reached2400, "sortStorg": sortStorg, "filterStorg": filterStorg, "betweenDates": betweenDates}
+	customFunctions := template.FuncMap{"uniqueDate": uniqueDate, "reached2400": reached2400, "sortStorg": sortStorg, "filterStorg": filterStorg, "betweenDates": betweenDates}
 
-	templateDotOut, err := template.New("nodesDot").Funcs(customFunctionsDot).Parse(string(templateDotStr))
+	templateStruct, err := template.New("nodesDot").Funcs(customFunctions).Parse(string(templateString))
 	if err != nil {
 		panic(err)
 	}
 
-	fileDot, err := os.Create(outputPath)
+	file, err := os.Create(outputPath)
 
 	if err != nil {
 		log.Fatalf("failed creating file: %s", err)
 	}
 
 	//	var tpl bytes.Buffer
-	err = templateDotOut.Execute(fileDot, storg)
+	err = templateStruct.Execute(file, storg)
 	if err != nil {
 		panic(err)
+	}
+
+}
+
+// generates ravdia org files
+func generateRavdia(storg []map[string]interface{}, templatePath string, outputPath string) {
+
+	// read a template
+	templateString, err := ioutil.ReadFile(templatePath)
+	if err != nil {
+		fmt.Println("File reading error", err)
+		return
+	}
+
+	customFunctions := template.FuncMap{"uniqueDate": uniqueDate, "reached2400": reached2400, "sortStorg": sortStorg, "filterStorg": filterStorg, "betweenDates": betweenDates}
+
+	templateStruct, err := template.New("nodesRavdia").Funcs(customFunctions).Parse(string(templateString))
+	if err != nil {
+		panic(err)
+	}
+
+	for _, node := range storg {
+
+		data := node["datum"].(map[string]interface{})
+		uuid := data["uuid"].(string)
+
+		file, err := os.Create(outputPath + "/" + uuid + ".org")
+		if err != nil {
+			log.Fatalf("failed creating file: %s", err)
+		}
+
+		err = templateStruct.Execute(file, node)
+		if err != nil {
+			panic(err)
+		}
+
+		file.Close()
+
 	}
 
 }
@@ -397,6 +434,9 @@ func main() {
 	} else if reportType == "dot" {
 		var storg = parseStorg(storgPath)
 		generateDot(storg, templatePath, outputPath)
+	} else if reportType == "ravdia" {
+		var storg = parseStorg(storgPath)
+		generateRavdia(storg, templatePath, outputPath)
 	} else {
 		help := `Usage of ./biorgo:
   -o string
