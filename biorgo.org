@@ -116,3 +116,17 @@ node [shape="plain"];rankdir=TB;
 :END:
 {{ with .datum.entry }}{{ . }}{{ end }}
 #+END_SRC
+
+** prepare mamagpa scans
+#+BEGIN_SRC go :tangle templates/prepare-mamagpa-scans.tmpl
+{{ range . }}* .
+:PROPERTIES:
+:GUEST: mamagpa
+:GUEST_DATE:
+:HOST: mamagpa
+:HOST_DATE:
+:PATH: {{ with .path }}{{ . }}{{ end }}
+:TAGS:
+:END:
+{{ end }}
+#+END_SRC

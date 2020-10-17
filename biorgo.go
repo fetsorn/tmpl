@@ -90,7 +90,7 @@ func filterStorg(storgOld []map[string]interface{}, key string, value string) []
 	storgNew := []map[string]interface{}{}
 
 	for _, node := range storgOld {
-		if equals(node, key, value) {
+		if keyEquals(node, key, value) {
 			storgNew = append(storgNew, node)
 		}
 	}
@@ -99,7 +99,7 @@ func filterStorg(storgOld []map[string]interface{}, key string, value string) []
 }
 
 // tell if a storg node has value
-func equals(node map[string]interface{}, key string, keyword string) bool {
+func keyEquals(node map[string]interface{}, key string, keyword string) bool {
 
 	meta := node["metadatum"].(map[string]interface{})
 	value := meta[key].(string)
@@ -112,7 +112,7 @@ func uniqueDate(storgOld []map[string]interface{}, key string) []map[string]inte
 	storgNew := []map[string]interface{}{}
 
 	for _, node := range storgOld {
-		if !contains(storgNew[:], node, key) {
+		if !storgContains(storgNew[:], node, key) {
 			storgNew = append(storgNew, node)
 		}
 	}
@@ -126,8 +126,8 @@ func uniqueDate(storgOld []map[string]interface{}, key string) []map[string]inte
 	return storgNew
 }
 
-// tell if a storg array contains elements with the same key value as elementNew
-func contains(array []map[string]interface{}, elementNew map[string]interface{}, key string) bool {
+// tell if a storg array storgContains elements with the same key value as elementNew
+func storgContains(array []map[string]interface{}, elementNew map[string]interface{}, key string) bool {
 
 	metaNew := elementNew["metadatum"].(map[string]interface{})
 	dateNew := metaNew[key].(string)
@@ -195,6 +195,10 @@ func between(node map[string]interface{}, key string, start string, end string) 
 	}
 
 	return false
+}
+
+func fileIsLegible(path string) bool {
+	return !strings.HasSuffix(path, ".DS_Store")
 }
 
 // tbn
@@ -321,7 +325,6 @@ func generateDesmi(storg []map[string]interface{}, templatePath string, outputPa
 	}
 
 	file, err := os.Create(outputPath)
-
 	if err != nil {
 		log.Fatalf("failed creating file: %s", err)
 	}
@@ -509,8 +512,107 @@ func parseBiorgToJSON(inputPath string, outputPath string) {
 	}
 }
 
-// prepare files in directory inputPath for biorg
+type FilePrepared struct {
+	Name       string `json:"name"`
+	ModTime    string `json:"mod_time"`
+	Size       int64  `json:"size"`
+	Path       string `json:"path"`
+	ParsedTime string `json:"parsed_time"`
+	Contents   string `json:"contents"`
+	// UUID       string `json:"uuid"`
+}
+
+// prepare files in directory inputPath according to a go template in templatePath, output as desmi to outputPath
 func prepareFiles(inputPath string, templatePath string, outputPath string) {
+
+	jsonArray := []map[string]interface{}{}
+
+	// parse the file into FilePrepared struct, append to array
+	var walkFunction = func(path string, info os.FileInfo, err error) error {
+
+		if !info.IsDir() && fileIsLegible(path) {
+			var file FilePrepared
+
+			layout := "<2006-01-02>"
+			modTime := info.ModTime().Format(layout)
+
+			file.Name = info.Name()
+			file.ModTime = modTime
+			file.Size = info.Size()
+			file.Path = path
+			file.ParsedTime = time.Now().Format(layout)
+
+			//add contents of text files
+			fileExt := filepath.Ext(path)
+			if fileExt == ".org" || fileExt == ".org" || fileExt == ".md" {
+
+				entry, err := ioutil.ReadFile(path)
+				if err != nil {
+					fmt.Printf("error reading file %v", path)
+				}
+
+				file.Contents = string(entry)
+
+				// increment all org headings by one level
+				// legacy solution that imitates previous manual commits
+				re := regexp.MustCompile(`(?m)^\*`)
+				file.Contents = re.ReplaceAllString(file.Contents, "**")
+			}
+
+			//add uuid to identify the node in Storg
+			// file.UUID = uuid.New().String()
+
+			jsonStr, _ := json.Marshal(file)
+
+			var jsonMap map[string]interface{}
+			if err := json.Unmarshal(jsonStr, &jsonMap); err != nil {
+				panic(err)
+			}
+
+			jsonArray = append(jsonArray, jsonMap)
+
+		}
+
+		return err
+	}
+
+	// walk the directory inputPath, apply walkFunction to each file
+	err := filepath.Walk(inputPath, walkFunction)
+	if err != nil {
+		fmt.Printf("error walking the path %q: %v\n", inputPath, err)
+	}
+
+	// read a go template from templatePath
+	templateString, err := ioutil.ReadFile(templatePath)
+	if err != nil {
+		fmt.Println("File reading error", err)
+		return
+	}
+
+	// prepare the template
+	customFunctions := template.FuncMap{}
+
+	templateStruct, err := template.New("nodesPrepared").Funcs(customFunctions).Parse(string(templateString))
+	if err != nil {
+		panic(err)
+	}
+
+	// create a file at outputPath
+	file, err := os.Create(outputPath)
+	if err != nil {
+		log.Fatalf("failed creating file: %s", err)
+	}
+
+	// execute template over the array of FilePrepared, write to output file
+	err = templateStruct.Execute(file, jsonArray)
+	if err != nil {
+		panic(err)
+	}
+
+}
+
+// prepare files in directory inputPath for biorg
+func prepareFilesOld(inputPath string, templatePath string, outputPath string) {
 
 	storgArray := []map[string]interface{}{}
 
