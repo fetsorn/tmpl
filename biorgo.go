@@ -441,7 +441,7 @@ type Biorg struct {
 }
 
 // parse Biorg node to json
-func parseNodeToJSON(node org.Headline) string {
+func parseNodeToJSONOld(node org.Headline) string {
 
 	var biorg Biorg
 
@@ -469,7 +469,7 @@ func parseNodeToJSON(node org.Headline) string {
 }
 
 // parse Biorg file to json
-func parseBiorgToJSON(inputPath string, outputPath string) {
+func parseBiorgToJSONOld(inputPath string, outputPath string) {
 
 	bs, err := ioutil.ReadFile(inputPath)
 	if err != nil {
@@ -483,7 +483,7 @@ func parseBiorgToJSON(inputPath string, outputPath string) {
 			switch node := node.(type) {
 			case org.Headline:
 				if node.Lvl == 1 {
-					fmt.Println(parseNodeToJSON(node))
+					fmt.Println(parseNodeToJSONOld(node))
 					fmt.Print(",")
 				}
 			}
@@ -501,7 +501,7 @@ func parseBiorgToJSON(inputPath string, outputPath string) {
 			switch node := node.(type) {
 			case org.Headline:
 				if node.Lvl == 1 {
-					file.WriteString(parseNodeToJSON(node))
+					file.WriteString(parseNodeToJSONOld(node))
 					file.WriteString(",")
 				}
 			}
@@ -510,6 +510,87 @@ func parseBiorgToJSON(inputPath string, outputPath string) {
 		file.WriteString("]")
 		file.Close()
 	}
+}
+
+func parseNodeToJSON(node org.Headline) map[string]interface{} {
+
+	var properties [][]string = node.Properties.Properties
+
+	var nodeMap = map[string]interface{}{}
+
+	for _, pair := range properties {
+		// map first element of the pair array to the second
+		nodeMap[pair[0]] = pair[1]
+	}
+
+	return nodeMap
+}
+
+func parseBiorgToJSON(inputPath string, outputPath string) {
+
+	jsonArray := []map[string]interface{}{}
+
+	input, err := ioutil.ReadFile(inputPath)
+	if err != nil {
+		return
+	}
+	document := org.New().Parse(bytes.NewReader(input), inputPath)
+
+	for _, node := range document.Nodes {
+		switch node := node.(type) {
+		case org.Headline:
+			if node.Lvl == 1 {
+
+				var nodeMap = map[string]interface{}{}
+
+				for _, pair := range node.Properties.Properties {
+					// map first element of the pair array to the second
+					nodeMap[pair[0]] = pair[1]
+				}
+
+				var datum string
+
+				for _, child := range node.Children {
+					datum += org.NewOrgWriter().WriteNodesAsString(child)
+				}
+
+				nodeMap["DATUM"] = datum
+
+				jsonArray = append(jsonArray, nodeMap)
+
+			}
+		}
+	}
+
+	// read a go template from templatePath
+	// templateString, err := ioutil.ReadFile(templatePath)
+	// if err != nil {
+	// 	fmt.Println("File reading error", err)
+	// 	return
+	// }
+
+	// prepare the template
+	// customFunctions := template.FuncMap{}
+
+	// templateStruct, err := template.New("nodesPrepared").Funcs(customFunctions).Parse(string(templateString))
+	// if err != nil {
+	// 	panic(err)
+	// }
+
+	// create a file at outputPath
+	file, err := os.Create(outputPath)
+	if err != nil {
+		log.Fatalf("failed creating file: %s", err)
+	}
+	storg, _ := json.Marshal(jsonArray)
+	file.WriteString(string(storg))
+
+	// execute template over the array of FilePrepared, write to output file
+	// err = templateStruct.Execute(file, jsonArray)
+	// if err != nil {
+	// 	panic(err)
+	// }
+
 }
 
 type FilePrepared struct {
