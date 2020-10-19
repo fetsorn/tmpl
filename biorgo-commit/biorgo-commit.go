@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/niklasfasching/go-org/org"
 	"io/ioutil"
 	"log"
@@ -40,6 +41,8 @@ func parseBiorgToJSON(inputPath string, outputPath string) {
 				}
 
 				nodeMap["DATUM"] = datum
+
+				nodeMap["UUID"] = uuid.New().String()
 
 				jsonArray = append(jsonArray, nodeMap)
 

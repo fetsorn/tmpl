@@ -21,11 +21,8 @@ func sortStorg(storg []map[string]interface{}, key string) []map[string]interfac
 		nodeLast := storg[i]
 		nodeNext := storg[j]
 
-		metaLast := nodeLast["metadatum"].(map[string]interface{})
-		keyLast := metaLast[key].(string)
-
-		metaNext := nodeNext["metadatum"].(map[string]interface{})
-		keyNext := metaNext[key].(string)
+		keyLast := nodeLast[key].(string)
+		keyNext := nodeNext[key].(string)
 
 		return keyLast < keyNext
 	})
@@ -40,8 +37,7 @@ func filterStorg(storgOld []map[string]interface{}, key string, keyword string) 
 
 	for _, node := range storgOld {
 
-		meta := node["metadatum"].(map[string]interface{})
-		value := meta[key].(string)
+		value := node[key].(string)
 
 		if value == keyword {
 			storgNew = append(storgNew, node)
@@ -59,8 +55,7 @@ func betweenDates(storgOld []map[string]interface{}, key string, start string, e
 	for _, node := range storgOld {
 
 		// get the key value
-		meta := node["metadatum"].(map[string]interface{})
-		date := meta[key].(string)
+		date := node[key].(string)
 
 		// parse dates to time.time
 		layout := "<2006-01-02>"
@@ -103,15 +98,13 @@ loopOuter:
 	for _, nodeY := range storgArray {
 
 		// get the key value of the next node
-		metaY := nodeY["metadatum"].(map[string]interface{})
-		dateY := metaY[key].(string)
+		dateY := nodeY[key].(string)
 
 		// check if the set already has an element with that key value
 		for _, nodeX := range storgSet {
 
 			// get the key value of the previous node
-			metaX := nodeX["metadatum"].(map[string]interface{})
-			dateX := metaX[key].(string)
+			dateX := nodeX[key].(string)
 
 			// if an element of the set has the same value, continue to the next node
 			if dateX == dateY {
@@ -194,18 +187,17 @@ func generateDot(storg []map[string]interface{}, templatePath string, outputPath
 
 	// format storg entries to prevent graphviz errors
 	for _, node := range storg {
-		datum := node["datum"].(map[string]interface{})
 		// remove symbols instead of escaping because backslashes might otherwise escape closing quotes
 		// DO NOT REUSE FOR RAVDIA, BREAKS VALIDITY
 		// remote newlines
-		entry := datum["entry"].(string)
-		datum["entry"] = strings.Replace(entry, "\n", "", -1)
+		datum := node["DATUM"].(string)
+		node["DATUM"] = strings.Replace(datum, "\n", "", -1)
 		// remove quotes
-		entry = datum["entry"].(string)
-		datum["entry"] = strings.Replace(entry, "\"", "", -1)
+		datum = node["DATUM"].(string)
+		node["DATUM"] = strings.Replace(datum, "\"", "", -1)
 		// remove the line tabulation character
-		entry = datum["entry"].(string)
-		datum["entry"] = strings.Replace(entry, "", "", -1)
+		datum = node["DATUM"].(string)
+		node["DATUM"] = strings.Replace(datum, "", "", -1)
 	}
 
 	// read a template
@@ -271,10 +263,9 @@ func generateRavdia(storg []map[string]interface{}, templatePath string, outputP
 
 	for _, node := range storg {
 
-		data := node["datum"].(map[string]interface{})
-		uuid := data["uuid"].(string)
+		uuid := node["UUID"].(string)
 
-		file, err := os.Create(outputPath + "/" + uuid + ".org")
+		file, err := os.Create(outputPath + "/" + uuid + ".html")
 		if err != nil {
 			log.Fatalf("failed creating file: %s", err)
 		}

@@ -95,7 +95,7 @@ node [shape="plain"];rankdir=TB;
 }
 {{ end }}{{ end }}
 #+END_SRC
-** ravdia
+** ravdi
 #+BEGIN_SRC go :tangle templates/ravdi.tmpl
 ,* .
 :PROPERTIES: {{ with .metadatum }}
@@ -110,20 +110,6 @@ node [shape="plain"];rankdir=TB;
 :UUID: {{ with .datum.uuid }}{{ . }}{{ end }}
 :END:
 {{ with .datum.entry }}{{ . }}{{ end }}
-#+END_SRC
-
-** prepare mamagpa scans
-#+BEGIN_SRC go :tangle templates/prepare-mamagpa-scans.tmpl
-{{ range . }}* .
-:PROPERTIES:
-:GUEST: mamagpa
-:GUEST_DATE:
-:HOST: mamagpa
-:HOST_DATE:
-:PATH: {{ with .path }}{{ . }}{{ end }}
-:TAGS:
-:END:
-{{ end }}
 #+END_SRC
 
 * commands
