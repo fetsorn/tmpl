@@ -24,8 +24,15 @@ type FilePrepared struct {
 	// UUID       string `json:"uuid"`
 }
 
-func fileIsLegible(path string) bool {
+// tell if the file has useful data
+func fileIsUseful(path string) bool {
 	return !strings.HasSuffix(path, ".DS_Store")
+}
+
+// tell if the file is plain text and its contents should be read
+func fileIsText(path string) bool {
+	fileExt := filepath.Ext(path)
+	return fileExt == ".txt" || fileExt == ".org" || fileExt == ".md"
 }
 
 // prepare files in directory inputPath according to a go template in templatePath, output as desmi to outputPath
@@ -36,7 +43,7 @@ func prepareFiles(inputPath string, templatePath string, outputPath string) {
 	// parse the file into FilePrepared struct, append to array
 	var walkFunction = func(path string, info os.FileInfo, err error) error {
 
-		if !info.IsDir() && fileIsLegible(path) {
+		if !info.IsDir() && fileIsUseful(path) {
 			var file FilePrepared
 
 			layout := "<2006-01-02>"
@@ -48,9 +55,8 @@ func prepareFiles(inputPath string, templatePath string, outputPath string) {
 			file.Path = path
 			file.ParsedTime = time.Now().Format(layout)
 
-			//add contents of text files
-			fileExt := filepath.Ext(path)
-			if fileExt == ".org" || fileExt == ".org" || fileExt == ".md" {
+			// add contents of plain text files
+			if fileIsText(path) {
 
 				entry, err := ioutil.ReadFile(path)
 				if err != nil {
@@ -100,16 +106,25 @@ func prepareFiles(inputPath string, templatePath string, outputPath string) {
 		panic(err)
 	}
 
-	// create a file at outputPath
-	file, err := os.Create(outputPath)
-	if err != nil {
-		log.Fatalf("failed creating file: %s", err)
-	}
+	if outputPath == "empty" {
 
-	// execute template over the array of FilePrepared, write to output file
-	err = templateStruct.Execute(file, jsonArray)
-	if err != nil {
-		panic(err)
+		err = templateStruct.Execute(os.Stdout, jsonArray)
+		if err != nil {
+			panic(err)
+		}
+	} else {
+
+		// create a file at outputPath
+		file, err := os.Create(outputPath)
+		if err != nil {
+			log.Fatalf("failed creating file: %s", err)
+		}
+
+		// execute template over the array of FilePrepared, write to output file
+		err = templateStruct.Execute(file, jsonArray)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 }

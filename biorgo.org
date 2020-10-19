@@ -76,32 +76,27 @@
 digraph storg_timeline {
 imap=yes;
 node [shape="plain"];rankdir=TB;
-/* date <-> versions ranks */
-/* {rank=same; "1995-05-01" "Postgres95-0.01"} */
 
-{{ range $nodeIndex, $node := . }}
+/* date <-> versions ranks */
+/* {rank=same; "1995-05-01" "Postgres95-0.01"} */{{ range $nodeIndex, $node := . }}
 {rank=same; "{{ $node.metadatum.HOST_DATE }}""{{ $nodeIndex }}"}{{ end }}
 
 /* Dates relations */
-/*"<1995-01-01>" -> */
-
-{{ range $nodeIndex, $node := uniqueDate . "HOST_DATE"}}
+/*"<1995-01-01>" -> */{{ range $nodeIndex, $node := uniqueDate . "HOST_DATE"}}
 {{ if reached2400 $nodeIndex }}"{{ $node.metadatum.HOST_DATE }}"
 "{{ $node.metadatum.HOST_DATE }}" ->
 {{ else }}"{{ $node.metadatum.HOST_DATE }}" ->{{ end }}{{ end }}
 "Future"
 
 /* Versions relations */
-/*"1" [label="Postgres95-0.03"] ;*/
-
-{{ range $nodeIndex, $node := . }}
+/*"1" [label="Postgres95-0.03"] ;*/{{ range $nodeIndex, $node := . }}
 "{{ $nodeIndex }}" [label="*",tooltip="{{ printf "%.50s" $node.datum.entry }}",href="ravdia/{{ $node.datum.uuid }}.org",target="_blank"];{{ end }}
 
 }
 {{ end }}{{ end }}
 #+END_SRC
 ** ravdia
-#+BEGIN_SRC go :tangle templates/ravdia.tmpl
+#+BEGIN_SRC go :tangle templates/ravdi.tmpl
 ,* .
 :PROPERTIES: {{ with .metadatum }}
 :COMMENT: {{ with .COMMENT }}{{ . }}{{ end }}
@@ -129,4 +124,22 @@ node [shape="plain"];rankdir=TB;
 :TAGS:
 :END:
 {{ end }}
+#+END_SRC
+
+* commands
+#+BEGIN_SRC sh
+# outputs to file when -o is specified
+./biorgo-commit -i prepare/prepare-part-1.bi.org | jq > prepare/prepare-part-1.json
+
+# outputs to stdout when -o is not specified
+./biorgo-prepare -i sunduk/sunduk-part-1/ -t templates/prepare.tmpl -o prepare/prepare-part-1.org
+
+# outputs to stdout when -o is not specified
+./biorgo-report -r desmi -i storg/storg.json -t templates/desmi-all-guest-asc.tmpl -o reports/desmi-all-guest-asc.org
+
+# outputs to stdout when -o is not specified
+./biorgo-report -r dot -i storg/storg.json -t templates/dot-2019-2021-guest.tmpl -o reports/dot-2019-2021-guest.dot
+
+# creates output folder if it does not exist
+./biorgo-report -r ravdia -i storg/storg.json -t templates/ravdi.tmpl -o reports/ravdia/
 #+END_SRC

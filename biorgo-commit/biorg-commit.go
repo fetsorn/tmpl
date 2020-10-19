@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"github.com/niklasfasching/go-org/org"
 	"io/ioutil"
 	"log"
@@ -46,15 +47,22 @@ func parseBiorgToJSON(inputPath string, outputPath string) {
 		}
 	}
 
-	// create a file at outputPath
-	file, err := os.Create(outputPath)
-	if err != nil {
-		log.Fatalf("failed creating file: %s", err)
-	}
-
 	storg, _ := json.Marshal(jsonArray)
 
-	file.WriteString(string(storg))
+	if outputPath == "empty" {
+
+		// output json to stdout
+		fmt.Println(string(storg))
+	} else {
+
+		// create a file at outputPath
+		file, err := os.Create(outputPath)
+		if err != nil {
+			log.Fatalf("failed creating file: %s", err)
+		}
+
+		file.WriteString(string(storg))
+	}
 
 }
 
@@ -64,7 +72,7 @@ func main() {
 	var outputPath string
 
 	// flags declaration using flag package
-	flag.StringVar(&inputPath, "i", "empty", "Please specify storg path")
+	flag.StringVar(&inputPath, "i", "empty", "Please specify the org file")
 	flag.StringVar(&outputPath, "o", "empty", "Please specify output path")
 
 	flag.Parse() // after declaring flags we need to call it

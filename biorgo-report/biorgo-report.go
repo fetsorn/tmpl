@@ -13,8 +13,6 @@ import (
 	"time"
 )
 
-// tbn
-
 // sort storg by key in ascending order
 func sortStorg(storg []map[string]interface{}, key string) []map[string]interface{} {
 
@@ -36,12 +34,16 @@ func sortStorg(storg []map[string]interface{}, key string) []map[string]interfac
 }
 
 // filter storg by key value
-func filterStorg(storgOld []map[string]interface{}, key string, value string) []map[string]interface{} {
+func filterStorg(storgOld []map[string]interface{}, key string, keyword string) []map[string]interface{} {
 
 	storgNew := []map[string]interface{}{}
 
 	for _, node := range storgOld {
-		if keyEquals(node, key, value) {
+
+		meta := node["metadatum"].(map[string]interface{})
+		value := meta[key].(string)
+
+		if value == keyword {
 			storgNew = append(storgNew, node)
 		}
 	}
@@ -55,100 +57,80 @@ func betweenDates(storgOld []map[string]interface{}, key string, start string, e
 	storgNew := []map[string]interface{}{}
 
 	for _, node := range storgOld {
-		if between(node, key, start, end) {
+
+		// get the key value
+		meta := node["metadatum"].(map[string]interface{})
+		date := meta[key].(string)
+
+		// parse dates to time.time
+		layout := "<2006-01-02>"
+
+		timeNode, err := time.Parse(layout, date)
+		if err != nil {
+			fmt.Println("Failed to parse the node date: ", date)
+			continue
+		}
+
+		timeStart, err := time.Parse(layout, start)
+		if err != nil {
+			fmt.Println("Failed to parse the start date: ", start)
+			continue
+		}
+
+		timeEnd, err := time.Parse(layout, end)
+		if err != nil {
+			fmt.Println("Failed to parse the end date: ", end)
+			continue
+		}
+
+		// if the node time is between start and end, append it to the array
+		if timeNode.After(timeStart) && timeNode.Before(timeEnd) {
 			storgNew = append(storgNew, node)
 		}
 	}
 
+	// return nodes with key between start and end
 	return storgNew
-}
-
-// tell if node key value is between start and period
-func between(node map[string]interface{}, key string, start string, end string) bool {
-
-	meta := node["metadatum"].(map[string]interface{})
-	date := meta[key].(string)
-
-	layout := "<2006-01-02>"
-	timeNode, err := time.Parse(layout, date)
-	timeStart, err := time.Parse(layout, start)
-	timeEnd, err := time.Parse(layout, end)
-
-	if err != nil {
-		// fmt.Println("not a date")
-		return false
-	}
-
-	if timeNode.After(timeStart) && timeNode.Before(timeEnd) {
-		return true
-	}
-
-	return false
-}
-
-// tell if a storg node has value
-func keyEquals(node map[string]interface{}, key string, keyword string) bool {
-
-	meta := node["metadatum"].(map[string]interface{})
-	value := meta[key].(string)
-
-	return value == keyword
 }
 
 // filter storg oldArray by unique key
-func uniqueDate(storgOld []map[string]interface{}, key string) []map[string]interface{} {
-	storgNew := []map[string]interface{}{}
+func uniqueDate(storgArray []map[string]interface{}, key string) []map[string]interface{} {
 
-	for _, node := range storgOld {
-		if !storgContains(storgNew[:], node, key) {
-			storgNew = append(storgNew, node)
+	storgSet := []map[string]interface{}{}
+
+	// iterate over the array, append unique nodes to the set
+loopOuter:
+	for _, nodeY := range storgArray {
+
+		// get the key value of the next node
+		metaY := nodeY["metadatum"].(map[string]interface{})
+		dateY := metaY[key].(string)
+
+		// check if the set already has an element with that key value
+		for _, nodeX := range storgSet {
+
+			// get the key value of the previous node
+			metaX := nodeX["metadatum"].(map[string]interface{})
+			dateX := metaX[key].(string)
+
+			// if an element of the set has the same value, continue to the next node
+			if dateX == dateY {
+				continue loopOuter
+			}
 		}
+
+		// if the node is unique, append it to the set
+		storgSet = append(storgSet, nodeY)
 	}
 
-	// r := []string{}
-	// for _, s := range e {
-	// 	if !contains(r[:], s) {
-	// 		r = append(r, s)
-	// 	}
-	// }
-	return storgNew
+	return storgSet
 }
 
 // tell if node index is divisible by 2400
 // allows to partition dates in dot notation and avoid graphviz error
 func reached2400(index int) bool {
-	return index%2400 == 0
+	return index != 0 && index%2400 == 0
 }
-
-// tell if a storg array storgContains elements with the same key value as elementNew
-func storgContains(array []map[string]interface{}, elementNew map[string]interface{}, key string) bool {
-
-	metaNew := elementNew["metadatum"].(map[string]interface{})
-	dateNew := metaNew[key].(string)
-
-	for _, elementOld := range array {
-
-		metaOld := elementOld["metadatum"].(map[string]interface{})
-		dateOld := metaOld[key].(string)
-
-		if dateOld == dateNew {
-			return true
-		}
-	}
-	// var dat map[string]interface{}
-	// strs := dat["strs"].([]interface{})
-	// str1 := strs[0].(string)
-	// fmt.Println(str1)
-
-	// for _, s := range e {
-	// 	if s == c {
-	// 		return true
-	// 	}
-	// }
-	return false
-}
-
-// tbn
 
 // parse storg json
 func parseStorg(storgPath string) []map[string]interface{} {
@@ -159,8 +141,6 @@ func parseStorg(storgPath string) []map[string]interface{} {
 		fmt.Println("File reading error", err)
 		return nil
 	}
-
-	// fmt.Println("Contents of file:", len(string(storgFile)))
 
 	var storgMap []map[string]interface{}
 
@@ -182,21 +162,6 @@ func generateDesmi(storg []map[string]interface{}, templatePath string, outputPa
 		return
 	}
 
-	// 	var storgFileTemplateStr = `{{ range . }}
-	// * .
-	// :PROPERTIES: {{ with .metadatum }}
-	// :COMMENT: {{ with .COMMENT }}{{ . }}{{ end }}
-	// :GUEST_DATE: {{ with .GUEST_DATE }}{{ . }}{{ end }}
-	// :GUEST: {{ with .GUEST }}{{ . }}{{ end }}
-	// :HOST_DATE: {{ with .HOST_DATE }} {{ . }}{{ end }}
-	// :HOST: {{ with .HOST }}{{ . }}{{ end }}
-	// :LABEL: {{ with .LABEL }}{{ . }}{{ end }}
-	// :MODULE: {{ with .MODULE }}{{ . }}{{ end }}
-	// :TYPE: {{ with .TYPE }}{{ . }}{{ end }}{{ end }}
-	// :UUID: {{ with .datum.uuid }}{{ . }}{{ end }}
-	// :END:
-	// {{ with .datum.entry }}{{ . }}{{ end }}{{ end }}`
-
 	customFunctions := template.FuncMap{"sortStorg": sortStorg, "filterStorg": filterStorg, "betweenDates": betweenDates}
 
 	templateStruct, err := template.New("nodesDesmi").Funcs(customFunctions).Parse(string(templateString))
@@ -204,15 +169,23 @@ func generateDesmi(storg []map[string]interface{}, templatePath string, outputPa
 		panic(err)
 	}
 
-	file, err := os.Create(outputPath)
-	if err != nil {
-		log.Fatalf("failed creating file: %s", err)
-	}
+	if outputPath == "empty" {
 
-	//	var tpl bytes.Buffer
-	err = templateStruct.Execute(file, storg)
-	if err != nil {
-		panic(err)
+		err = templateStruct.Execute(os.Stdout, storg)
+		if err != nil {
+			panic(err)
+		}
+	} else {
+
+		file, err := os.Create(outputPath)
+		if err != nil {
+			log.Fatalf("failed creating file: %s", err)
+		}
+
+		err = templateStruct.Execute(file, storg)
+		if err != nil {
+			panic(err)
+		}
 	}
 }
 
@@ -249,22 +222,38 @@ func generateDot(storg []map[string]interface{}, templatePath string, outputPath
 		panic(err)
 	}
 
-	file, err := os.Create(outputPath)
+	if outputPath == "empty" {
 
-	if err != nil {
-		log.Fatalf("failed creating file: %s", err)
-	}
+		err = templateStruct.Execute(os.Stdout, storg)
+		if err != nil {
+			panic(err)
+		}
+	} else {
 
-	//	var tpl bytes.Buffer
-	err = templateStruct.Execute(file, storg)
-	if err != nil {
-		panic(err)
+		file, err := os.Create(outputPath)
+		if err != nil {
+			log.Fatalf("failed creating file: %s", err)
+		}
+
+		//	var tpl bytes.Buffer
+		err = templateStruct.Execute(file, storg)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 }
 
 // generate ravdia org files
 func generateRavdia(storg []map[string]interface{}, templatePath string, outputPath string) {
+
+	// create outputPath if it does not not exist
+	if _, err := os.Stat(outputPath); os.IsNotExist(err) {
+		err = os.Mkdir(outputPath, 0755)
+		if err != nil {
+			panic(err)
+		}
+	}
 
 	// read a template
 	templateString, err := ioutil.ReadFile(templatePath)
