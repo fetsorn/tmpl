@@ -3,40 +3,56 @@
 * template API
   #+NAME: sort
   #+BEGIN_SRC go
+// sort
   {{ with sortStorg . "HOST_DATE" }}{{ end }}
-  #+END_SRC
 
-  #+NAME: filter
-  #+BEGIN_SRC go
+// filter
   {{ with filterStorg . "MODULE" "journal" }} {{ end }}
-  #+END_SRC
 
-  #+NAME: index
-  #+BEGIN_SRC go
-  {{ range $nodeIndex, $node := . }}{{ $nodeIndex }}{{ end }}
-  #+END_SRC
+// between dates
+  {{ with betweenDates . "HOST_DATE" "<2016-01-01>" "<2017-01-01>" }}{{ end }}
 
-  #+NAME: uniqueDate
-  #+BEGIN_SRC go
+// unique date
   {{ range $nodeIndex, $node := uniqueDate . "HOST_DATE"}}{{ end }}
-  #+END_SRC
 
-  #+NAME: reached2400
-  #+BEGIN_SRC go
+// index
+  {{ range $nodeIndex, $node := . }}{{ $nodeIndex }}{{ end }}
+
+// reached2400
   {{ range $nodeIndex, $node := .}}
   {{ if reached2400 $nodeIndex }}"reached node index divisible by 2400"{{ end }}
   {{ end }}
-  #+END_SRC
 
-  #+NAME: shorten
-  #+BEGIN_SRC go
+// shorten
   {{ printf "%.50s" $node.datum.entry }}
-  #+END_SRC
 
-  #+NAME: betweenDates
-  #+BEGIN_SRC go
-  {{ with betweenDates . "HOST_DATE" "<2016-01-01>" "<2017-01-01>" }}{{ end }}
+// prepare struct
+type FilePrepared struct {
+	Name       string `json:"name"`
+	ModTime    string `json:"mod_time"`
+	Size       int64  `json:"size"`
+	Path       string `json:"path"`
+	ParsedTime string `json:"parsed_time"`
+	Contents   string `json:"contents"`
+}
   #+END_SRC
+* command API
+#+BEGIN_SRC sh
+# outputs to file when -o is specified
+./biorgo-commit -i prepare/prepare-part-1.bi.org | jq > prepare/prepare-part-1.json
+
+# outputs to stdout when -o is not specified
+./biorgo-prepare -i sunduk/sunduk-part-1/ -t templates/prepare.tmpl -o prepare/prepare-part-1.org
+
+# outputs to stdout when -o is not specified
+./biorgo-report -r desmi -i storg/storg.json -t templates/desmi-all-guest-asc.tmpl -o reports/desmi-all-guest-asc.org
+
+# outputs to stdout when -o is not specified
+./biorgo-report -r dot -i storg/storg.json -t templates/dot-2019-2021-guest.tmpl -o reports/dot-2019-2021-guest.dot
+
+# creates output folder if it does not exist
+./biorgo-report -r ravdia -i storg/storg.json -t templates/ravdi.tmpl -o reports/ravdia/
+#+END_SRC
 * templates
 ** desmi complete sorted by HOST_DATE
 #+BEGIN_SRC go :tangle templates/desmi-all-host-asc.tmpl
@@ -112,20 +128,3 @@ node [shape="plain"];rankdir=TB;
 {{ with .datum.entry }}{{ . }}{{ end }}
 #+END_SRC
 
-* commands
-#+BEGIN_SRC sh
-# outputs to file when -o is specified
-./biorgo-commit -i prepare/prepare-part-1.bi.org | jq > prepare/prepare-part-1.json
-
-# outputs to stdout when -o is not specified
-./biorgo-prepare -i sunduk/sunduk-part-1/ -t templates/prepare.tmpl -o prepare/prepare-part-1.org
-
-# outputs to stdout when -o is not specified
-./biorgo-report -r desmi -i storg/storg.json -t templates/desmi-all-guest-asc.tmpl -o reports/desmi-all-guest-asc.org
-
-# outputs to stdout when -o is not specified
-./biorgo-report -r dot -i storg/storg.json -t templates/dot-2019-2021-guest.tmpl -o reports/dot-2019-2021-guest.dot
-
-# creates output folder if it does not exist
-./biorgo-report -r ravdia -i storg/storg.json -t templates/ravdi.tmpl -o reports/ravdia/
-#+END_SRC
