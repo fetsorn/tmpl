@@ -23,42 +23,30 @@ type FilePrepared struct {
 	Contents   string `json:"contents"`
 }
 
-// tell if the file has useful data
-func fileIsUseful(path string, ignorePath string) bool {
+// tell if the folder content is noise and should be skipped
+func recursiveIsNoise(path string, array []string) bool {
 
-	extPath := filepath.Ext(path)
-
-	var ignoreStr string
-
-	// when ignore file is not specified, ignore defaults
-	if ignorePath == "empty" {
-		ignoreStr = `
-.DS_Store
-.info
-`
-	} else {
-
-		// read ignore file
-		ignoreFile, err := ioutil.ReadFile(ignorePath)
-		if err != nil {
-			fmt.Println("Failed to read ignore file", err)
-			panic(err)
-		}
-
-		ignoreStr = string(ignoreFile)
-	}
-
-	// split ignore list into array of string
-	ignoreArray := strings.Split(ignoreStr, "\n")
-
-	// check if string equals any of array's elements
-	for ext := range ignoreArray {
-		if ignoreArray[ext] == extPath {
-			return false
+	for noise := range array {
+		re := regexp.MustCompile(array[noise])
+		if re.MatchString(path) {
+			return true
 		}
 	}
 
-	return true
+	return false
+}
+
+// tell if the file extension is noise and it should be ignored
+func fileIsNoise(path string, array []string) bool {
+
+	for noise := range array {
+		re := regexp.MustCompile(array[noise])
+		if re.MatchString(path) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // tell if the file is plain text and its contents should be read
@@ -77,24 +65,43 @@ func fileIsText(path string) bool {
 	return false
 }
 
-func folderIsSkip(path string, info os.FileInfo) bool {
-	return info.Name() == ".git" || strings.Contains(path, "jre/lib")
-}
-
 // prepare files in directory inputPath according to a go template in templatePath, output as desmi to outputPath
 func prepareFiles(inputPath string, templatePath string, outputPath string, ignorePath string) {
 
 	jsonArray := []map[string]interface{}{}
 
+	var recursiveArray []string
+	var fileArray []string
+
+	if ignorePath == "empty" {
+
+		recursiveArray = []string{}
+		fileArray = []string{}
+	} else {
+
+		// read ignore file
+		ignoreFile, err := ioutil.ReadFile(ignorePath)
+		if err != nil {
+			fmt.Println("Failed to read ignore file", err)
+			panic(err)
+		}
+
+		ignoreArray := strings.Split(string(ignoreFile), "---")
+
+		recursiveArray = strings.Split(ignoreArray[0], "\n")
+		fileArray = strings.Split(ignoreArray[1], "\n")
+	}
+
 	// parse the file into FilePrepared struct, append to array
 	var walkFunction = func(path string, info os.FileInfo, err error) error {
 
-		if info.IsDir() && folderIsSkip(path, info) {
+		var file FilePrepared
+
+		if info.IsDir() && recursiveIsNoise(path, recursiveArray) {
 			return filepath.SkipDir
 		}
 
-		if !info.IsDir() && fileIsUseful(path, ignorePath) {
-			var file FilePrepared
+		if !info.IsDir() && !fileIsNoise(path, fileArray) {
 
 			layout := "<2006-01-02>"
 			modTime := info.ModTime().Format(layout)
@@ -110,7 +117,7 @@ func prepareFiles(inputPath string, templatePath string, outputPath string, igno
 
 				entry, err := ioutil.ReadFile(path)
 				if err != nil {
-					fmt.Printf("error reading file %v", path)
+					fmt.Println("error reading file %v", path)
 				}
 
 				file.Contents = string(entry)
@@ -139,12 +146,13 @@ func prepareFiles(inputPath string, templatePath string, outputPath string, igno
 		}
 
 		return err
+
 	}
 
 	// walk the directory inputPath, apply walkFunction to each file
 	err := filepath.Walk(inputPath, walkFunction)
 	if err != nil {
-		fmt.Printf("error walking the path %q: %v\n", inputPath, err)
+		fmt.Println("error walking the path %q: %v\n", inputPath, err)
 	}
 
 	// read a go template from templatePath
