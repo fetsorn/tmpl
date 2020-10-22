@@ -11,7 +11,7 @@ import (
 	"regexp"
 	"strings"
 	"text/template"
-	"time"
+	// "time"
 )
 
 type FilePrepared struct {
@@ -20,7 +20,6 @@ type FilePrepared struct {
 	Size       int64  `json:"size"`
 	Path       string `json:"path"`
 	ParsedTime string `json:"parsed_time"`
-	Contents   string `json:"contents"`
 }
 
 // tell if the folder content is noise and should be skipped
@@ -49,22 +48,6 @@ func fileIsNoise(path string, array []string) bool {
 	return false
 }
 
-// tell if the file is plain text and its contents should be read
-func fileIsText(path string) bool {
-
-	extPath := filepath.Ext(path)
-
-	textArray := []string{".txt", ".TXT", ".org", ".ORG", ".md", "MD"}
-
-	for ext := range textArray {
-		if textArray[ext] == extPath {
-			return true
-		}
-	}
-
-	return false
-}
-
 // prepare files in directory inputPath according to a go template in templatePath, output as desmi to outputPath
 func prepareFiles(inputPath string, templatePath string, outputPath string, ignorePath string) {
 
@@ -86,10 +69,16 @@ func prepareFiles(inputPath string, templatePath string, outputPath string, igno
 			panic(err)
 		}
 
-		ignoreArray := strings.Split(string(ignoreFile), "---")
+		ignoreStr := string(ignoreFile)
+		ignoreArray := strings.Split(ignoreStr, "\n---\n")
 
 		recursiveArray = strings.Split(ignoreArray[0], "\n")
+		// remove last empty element or it will match everything
+		recursiveArray = recursiveArray[:len(recursiveArray)-1]
+
 		fileArray = strings.Split(ignoreArray[1], "\n")
+		// remove last empty element or it will match everything
+		fileArray = fileArray[:len(fileArray)-1]
 	}
 
 	// parse the file into FilePrepared struct, append to array
@@ -108,36 +97,15 @@ func prepareFiles(inputPath string, templatePath string, outputPath string, igno
 
 			file.Name = info.Name()
 			file.ModTime = modTime
-			file.Size = info.Size()
+			//file.Size = info.Size()
 			file.Path = path
-			file.ParsedTime = time.Now().Format(layout)
-
-			// add contents of plain text files
-			if fileIsText(path) {
-
-				entry, err := ioutil.ReadFile(path)
-				if err != nil {
-					fmt.Println("error reading file %v", path)
-				}
-
-				file.Contents = string(entry)
-
-				// increment all org headings by one level
-				// legacy solution that imitates previous manual commits
-				re := regexp.MustCompile(`(?m)^\*`)
-				file.Contents = re.ReplaceAllString(file.Contents, "**")
-
-				// replace windows RET with newlines
-				re = regexp.MustCompile("")
-				file.Contents = re.ReplaceAllString(file.Contents, "\n")
-				re = regexp.MustCompile("|")
-				file.Contents = re.ReplaceAllString(file.Contents, " ")
-			}
+			//file.ParsedTime = time.Now().Format(layout)
 
 			jsonStr, _ := json.Marshal(file)
 
 			var jsonMap map[string]interface{}
 			if err := json.Unmarshal(jsonStr, &jsonMap); err != nil {
+				fmt.Println("Failed to unmarshal", err)
 				panic(err)
 			}
 
@@ -155,6 +123,8 @@ func prepareFiles(inputPath string, templatePath string, outputPath string, igno
 		fmt.Println("error walking the path %q: %v\n", inputPath, err)
 	}
 
+	fmt.Println(inputPath, " - ", len(jsonArray), "nodes")
+
 	// read a go template from templatePath
 	templateString, err := ioutil.ReadFile(templatePath)
 	if err != nil {
@@ -167,6 +137,7 @@ func prepareFiles(inputPath string, templatePath string, outputPath string, igno
 
 	templateStruct, err := template.New("nodesPrepared").Funcs(customFunctions).Parse(string(templateString))
 	if err != nil {
+		fmt.Println("Failed to prepare template", err)
 		panic(err)
 	}
 
@@ -174,6 +145,7 @@ func prepareFiles(inputPath string, templatePath string, outputPath string, igno
 
 		err = templateStruct.Execute(os.Stdout, jsonArray)
 		if err != nil {
+			fmt.Println("Failed to execute template", err)
 			panic(err)
 		}
 	} else {
@@ -187,6 +159,7 @@ func prepareFiles(inputPath string, templatePath string, outputPath string, igno
 		// execute template over the array of FilePrepared, write to output file
 		err = templateStruct.Execute(file, jsonArray)
 		if err != nil {
+			fmt.Println("Failed to execute template", err)
 			panic(err)
 		}
 	}
