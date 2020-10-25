@@ -53,6 +53,11 @@ type FilePrepared struct {
 # creates output folder if it does not exist
 ./biorgo-report -r ravdia -i storg/storg.json -t templates/ravdi.tmpl -o reports/ravdia/
 #+END_SRC
+
+#+BEGIN_SRC sh
+
+cat test.json | ./templ-cat -t ../templates/dot.tmpl > test.dot
+#+END_SRC
 * templates
 ** desmi complete sorted by HOST_DATE
 #+BEGIN_SRC go :tangle templates/desmi-all-host-asc.tmpl
@@ -88,28 +93,28 @@ type FilePrepared struct {
 #+END_SRC
 ** dot
 #+BEGIN_SRC go :tangle templates/dot.tmpl
-{{ with sortStorg . "HOST_DATE" }}{{ with filterStorg . "MODULE" "journal" }}
+{{ with sortStorg . "HOST_DATE" }}
 digraph storg_timeline {
 imap=yes;
 node [shape="plain"];rankdir=TB;
 
 /* date <-> versions ranks */
 /* {rank=same; "1995-05-01" "Postgres95-0.01"} */{{ range $nodeIndex, $node := . }}
-{rank=same; "{{ $node.metadatum.HOST_DATE }}""{{ $nodeIndex }}"}{{ end }}
+{rank=same; "{{ $node.HOST_DATE }}""{{ $nodeIndex }}"}{{ end }}
 
 /* Dates relations */
 /*"<1995-01-01>" -> */{{ range $nodeIndex, $node := uniqueDate . "HOST_DATE"}}
-{{ if reached2400 $nodeIndex }}"{{ $node.metadatum.HOST_DATE }}"
-"{{ $node.metadatum.HOST_DATE }}" ->
-{{ else }}"{{ $node.metadatum.HOST_DATE }}" ->{{ end }}{{ end }}
+{{ if reached2400 $nodeIndex }}"{{ $node.HOST_DATE }}"
+"{{ $node.HOST_DATE }}" ->
+{{ else }}"{{ $node.HOST_DATE }}" ->{{ end }}{{ end }}
 "Future"
 
 /* Versions relations */
-/*"1" [label="Postgres95-0.03"] ;*/{{ range $nodeIndex, $node := . }}
-"{{ $nodeIndex }}" [label="*",tooltip="{{ printf "%.50s" $node.datum.entry }}",href="ravdia/{{ $node.datum.uuid }}.org",target="_blank"];{{ end }}
+/*"1" [label="Postgres95-0.03"] ;*/{{ range $nodeIndex, $node := . }}{{ if and $node.HOST_DATE $node.GUEST_DATE }}
+"{{ $nodeIndex }}" [label="*",tooltip="{{ with formatStringDot $node.DATUM }}{{ printf "%.50s" . }}{{ end }}",href="ravdia/{{ $node.UUID }}.html", target="test"];{{ end }}{{ end }}
 
 }
-{{ end }}{{ end }}
+{{ end }}
 #+END_SRC
 ** ravdi
 #+BEGIN_SRC go :tangle templates/ravdi.tmpl

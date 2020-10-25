@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/goccy/go-graphviz"
 	"io/ioutil"
 	"log"
 	"os"
@@ -281,6 +282,22 @@ func generateRavdia(storg []map[string]interface{}, templatePath string, outputP
 
 }
 
+// generate svg from dot
+func generateSVG(dotPath string) {
+
+	g := graphviz.New()
+
+	b, err := ioutil.ReadFile(dotPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	graph, err := graphviz.ParseBytes(b)
+
+	if err := g.RenderFilename(graph, graphviz.SVG, "test.svg"); err != nil {
+		log.Fatal(err)
+	}
+}
+
 func main() {
 
 	var reportType string
@@ -303,6 +320,7 @@ func main() {
 	} else if reportType == "dot" {
 		var storg = parseStorg(inputPath)
 		generateDot(storg, templatePath, outputPath)
+		// generateSVG(outputPath)
 	} else if reportType == "ravdia" {
 		var storg = parseStorg(inputPath)
 		generateRavdia(storg, templatePath, outputPath)
