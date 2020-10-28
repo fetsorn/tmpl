@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
 	"github.com/niklasfasching/go-org/org"
 	"github.com/urfave/cli/v2"
 	"io/ioutil"
@@ -12,6 +11,7 @@ import (
 	"os"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -21,13 +21,13 @@ import (
 
 // tbn
 
-// sort storg by key in ascending order
-func sortStorg(storg []map[string]interface{}, key string) []map[string]interface{} {
+// sort json array by key in ascending order
+func sortArrayByKey(array []map[string]interface{}, key string) []map[string]interface{} {
 
-	sort.SliceStable(storg, func(i, j int) bool {
+	sort.SliceStable(array, func(i, j int) bool {
 
-		nodeLast := storg[i]
-		nodeNext := storg[j]
+		nodeLast := array[i]
+		nodeNext := array[j]
 
 		keyLast := nodeLast[key].(string)
 		keyNext := nodeNext[key].(string)
@@ -35,24 +35,21 @@ func sortStorg(storg []map[string]interface{}, key string) []map[string]interfac
 		return keyLast < keyNext
 	})
 
-	return storg
+	return array
 }
 
-// filter storg by key value
-func filterStorg(storgOld []map[string]interface{}, key string, keyword string) []map[string]interface{} {
+// tell if the key value contains any of the keywords in a comma-separated string
+func keyHasValueCSV(keyValue string, csv string) bool {
 
-	storgNew := []map[string]interface{}{}
+	array := strings.Split(csv, ",")
 
-	for _, node := range storgOld {
-
-		value := node[key].(string)
-
-		if value == keyword {
-			storgNew = append(storgNew, node)
+	for index := range array {
+		if strings.Contains(keyValue, array[index]) {
+			return true
 		}
 	}
 
-	return storgNew
+	return false
 }
 
 // filter storg by key in a time period between start and end
@@ -96,14 +93,14 @@ func betweenDates(storgOld []map[string]interface{}, key string, start string, e
 	return storgNew
 }
 
-// filter storg oldArray by unique key
-func uniqueDate(storgArray []map[string]interface{}, key string) []map[string]interface{} {
+// filter json array by unique value of key
+func filterArrayByUniqueKey(array []map[string]interface{}, key string) []map[string]interface{} {
 
 	storgSet := []map[string]interface{}{}
 
 	// iterate over the array, append unique nodes to the set
 loopOuter:
-	for _, nodeY := range storgArray {
+	for _, nodeY := range array {
 
 		// get the key value of the next node
 		dateY := nodeY[key].(string)
@@ -129,8 +126,8 @@ loopOuter:
 
 // tell if node index is divisible by 2400
 // allows to partition dates in dot notation and avoid graphviz error
-func reached2400(index int) bool {
-	return index != 0 && index%2400 == 0
+func divisibleBy(index int, mod int) bool {
+	return index != 0 && index%mod == 0
 }
 
 // format strings for dot
@@ -157,6 +154,54 @@ func formatStringBiorg(str string) string {
 	str = re.ReplaceAllString(str, "**")
 
 	return str
+}
+
+//
+func maxNodes(nodes []map[string]interface{}, key string) int {
+
+	// get an array of unique dates
+	dates := filterArrayByUniqueKey(nodes, key)
+
+	var largestNumber int
+	var counter int = 0
+
+	// check how many nodes have each date
+	for indexDate := range dates {
+
+		for indexNode := range nodes {
+
+			// count each node that has the date
+			if nodes[indexNode][key].(string) == dates[indexDate][key].(string) {
+				counter++
+			}
+
+		}
+
+		if counter > largestNumber {
+			largestNumber = counter
+		}
+
+		counter = 0
+
+	}
+
+	return largestNumber
+}
+
+//
+func scaleIndexes(nodes []map[string]interface{}, key string) []string {
+
+	indexes := []string{}
+	maxNodes := maxNodes(nodes, key)
+
+	i := 1
+	for i <= maxNodes {
+
+		indexes = append(indexes, strconv.Itoa(i))
+		i++
+	}
+
+	return indexes
 }
 
 // tbn
@@ -228,8 +273,6 @@ func parseBiorg(input []byte) ([]map[string]interface{}, error) {
 
 				nodeMap["DATUM"] = datum
 
-				nodeMap["UUID"] = uuid.New().String()
-
 				jsonArray = append(jsonArray, nodeMap)
 
 			}
@@ -256,7 +299,7 @@ func prepareTemplate(templatePath string) (*template.Template, error) {
 		return nil, err
 	}
 
-	customFunctions := template.FuncMap{"uniqueDate": uniqueDate, "reached2400": reached2400, "sortStorg": sortStorg, "filterStorg": filterStorg, "betweenDates": betweenDates, "formatStringDot": formatStringDot}
+	customFunctions := template.FuncMap{"filterArrayByUniqueKey": filterArrayByUniqueKey, "divisibleBy": divisibleBy, "sortArrayByKey": sortArrayByKey, "betweenDates": betweenDates, "formatStringDot": formatStringDot, "keyHasValueCSV": keyHasValueCSV, "scaleIndexes": scaleIndexes}
 
 	return template.New("nodesDesmi").Funcs(customFunctions).Parse(string(templateString))
 }

@@ -1,4 +1,4 @@
-module templ-cat
+module tmpl-cat
 
 go 1.15
 
