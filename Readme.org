@@ -1,0 +1,6 @@
+#Title: tmpl-cat & tmpl-find
+
+Command-line utilities for generating dot notation, used to render timeline graphs like [[http://172.105.56.168/timeline/][this one]].
+ - File traversal
+ - Parsing: org-mode, JSON 
+ - Template functions for Go's text/template library
